@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.4.3">
+<meta name="app-version" content="v1.4.4">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -780,7 +780,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.4.3
+      댕댕케어 v1.4.4
     </div>
     <div style="height:8px"></div>
   </div>
@@ -983,6 +983,24 @@ window.addEventListener('popstate', function(e) {
   const openModal = document.querySelector('.modal-overlay.show');
   if (openModal) {
     openModal.classList.remove('show');
+    // 임시 핀도 같이 제거
+    if (typeof _wmapTempMarker !== 'undefined' && _wmapTempMarker && typeof _wmapMap !== 'undefined' && _wmapMap) {
+      _wmapMap.removeLayer(_wmapTempMarker); _wmapTempMarker = null;
+    }
+    history.pushState({ tab: _currentTab }, '');
+    return;
+  }
+  // dog-form 열려있으면 닫기
+  const dogForm = document.getElementById('dog-form');
+  if (dogForm && dogForm.style.display === 'block') {
+    dogForm.style.display = 'none';
+    history.pushState({ tab: _currentTab }, '');
+    return;
+  }
+  // family-form 열려있으면 닫기
+  const familyForm = document.getElementById('family-form');
+  if (familyForm && familyForm.style.display === 'block') {
+    familyForm.style.display = 'none';
     history.pushState({ tab: _currentTab }, '');
     return;
   }
@@ -1137,6 +1155,7 @@ function openWalkModal(){
     favArea.style.display = 'none';
   }
   document.getElementById('walk-location-modal').classList.add('show');
+  history.pushState({ tab: _currentTab, modal: 'walk-location' }, '');
 }
 function walkLocUseFav(idx) {
   // 즐겨찾기 위치로 바로 핀 찍고 산책기록 탭 이동
@@ -1170,6 +1189,7 @@ function walkLocationNo(){
 }
 function _openWalkModalDirect(){
   document.getElementById('walk-modal').classList.add('show');
+  history.pushState({ tab: _currentTab, modal: 'walk' }, '');
   selectedWho=null;
   document.querySelectorAll('.who-btn').forEach(b=>b.classList.remove('selected'));
   document.getElementById('confirm-btn').disabled=true;
@@ -1900,6 +1920,7 @@ function dogShowAddForm() {
   const ef = document.getElementById('estrus-field');
   if(ef) ef.style.display='none';
   document.getElementById('dog-form').style.display = 'block';
+  history.pushState({ tab: _currentTab, modal: 'dog-form' }, '');
   document.getElementById('dog-form-name').focus();
 }
 
@@ -1915,6 +1936,7 @@ function dogShowEditForm(idx) {
   if (d.sex) dogSetSex(d.sex);
   document.getElementById('dog-form-idx').value = idx;
   document.getElementById('dog-form').style.display = 'block';
+  history.pushState({ tab: _currentTab, modal: 'dog-form' }, '');
   document.getElementById('dog-form-name').focus();
 }
 
@@ -2490,6 +2512,7 @@ function calAddCustomRecord() {
   document.getElementById('custom-icon-input').value = '';
   document.getElementById('custom-label-input').value = '';
   document.getElementById('custom-record-modal').classList.add('show');
+  history.pushState({ tab: _currentTab, modal: 'custom-record' }, '');
 }
 
 function selectCustomIcon(btn, icon) {
@@ -3177,6 +3200,7 @@ function familyShowAdd() {
   document.getElementById('family-form-role').value = '';
   document.getElementById('family-form-idx').value = '-1';
   document.getElementById('family-form').style.display = 'block';
+  history.pushState({ tab: _currentTab, modal: 'family-form' }, '');
   document.getElementById('family-form-name').focus();
 }
 
@@ -3187,6 +3211,7 @@ function familyShowEdit(idx) {
   document.getElementById('family-form-role').value = f.role || '';
   document.getElementById('family-form-idx').value = idx;
   document.getElementById('family-form').style.display = 'block';
+  history.pushState({ tab: _currentTab, modal: 'family-form' }, '');
   document.getElementById('family-form-name').focus();
 }
 
@@ -3818,6 +3843,7 @@ function wmapOpenPinModal(prefillName) {
         </button>`).join('')
     : '<span style="font-size:0.82rem;color:var(--text3);">설정 → 가족 등록 후 선택 가능</span>';
   document.getElementById('wmap-pin-modal').classList.add('show');
+  history.pushState({ tab: _currentTab, modal: 'wmap-pin' }, '');
 }
 
 function wmapSelectWho(btn, name) {
