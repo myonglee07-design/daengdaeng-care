@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.5.2">
+<meta name="app-version" content="v1.5.3-diag">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -783,7 +783,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.5.2
+      댕댕케어 v1.5.3-diag
     </div>
     <div style="height:8px"></div>
   </div>
@@ -1056,6 +1056,20 @@ function saveWalkData(data) {
 }
 
 function initWalkList() {
+  // ── 진단 오버레이 ──
+  (function() {
+    let d = document.getElementById('__walkDebug');
+    if (!d) { d = document.createElement('div'); d.id='__walkDebug';
+      d.style='position:fixed;top:60px;left:10px;right:10px;background:#000;color:#0f0;font-size:11px;z-index:9999;padding:8px;border-radius:8px;max-height:120px;overflow:auto;font-family:monospace;';
+      document.body.appendChild(d); }
+    const key = getWalkKey();
+    const raw = localStorage.getItem(key);
+    const cal  = localStorage.getItem('dc_cal');
+    const parsed = raw ? JSON.parse(raw) : [];
+    d.innerHTML = '🔍 walkKey: '+key+'<br>'
+      +'💾 walkSaved: '+JSON.stringify(parsed)+'<br>'
+      +'📅 calDB (walk): '+(()=>{try{const c=JSON.parse(cal);const dogs=getDogs();let out=[];dogs.forEach(g=>{const dd=(c[g.id]||{});Object.keys(dd).filter(k=>k.startsWith('2026-03-20')).forEach(k=>{const ws=dd[k].filter(r=>r.type==='walk');if(ws.length)out.push(g.id+':'+JSON.stringify(ws));});});return out.join(' | ')||'없음';}catch(e){return '파싱오류';}})();
+  })();
   const colors = ['var(--accent)','var(--accent3)','#60a5fa','#ec4899','#4ade80','#a855f7','#f59e0b'];
   const rawFamily = getFamilyDB();
   const family = rawFamily.map((f, i) => ({
