@@ -2,25 +2,20 @@
   "name": "댕댕케어",
   "short_name": "댕댕케어",
   "description": "소형견 건강 관리 앱",
-  "start_url": "./index.html",
+  "start_url": "/daengdaeng-care/",
+  "scope": "/daengdaeng-care/",
   "display": "standalone",
-  "background_color": "#0f1117",
+  "background_color": "#f4f6fb",
   "theme_color": "#f5a623",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f43e.png",
-      "sizes": "72x72",
+      "src": "icon-192.png",
+      "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f43e.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f43e.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
