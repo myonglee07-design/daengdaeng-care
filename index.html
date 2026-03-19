@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.3.0">
+<meta name="app-version" content="v1.3.1">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -732,7 +732,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.3.0
+      댕댕케어 v1.3.1
     </div>
     <div style="height:8px"></div>
   </div>
@@ -901,14 +901,29 @@ function switchTab(idx, fromPopstate){
 
   if (!fromPopstate) {
     if (idx === 0) {
-      // 홈: 스택을 홈 하나로 리셋
+      // 홈: 스택을 홈 하나로 리셋 (URL 변경 없이)
       history.replaceState({ tab: 0 }, '');
     } else {
-      // 비홈: 홈 위에 현재 탭 1개만 쌓음
-      history.replaceState({ tab: 0 }, '', location.href);
+      // 비홈: pushState만 (replaceState+href 제거 → URL 오염 방지)
       history.pushState({ tab: idx }, '');
     }
   }
+}
+
+// 홈에서 뒤로가기 종료 처리
+let _backPressTime = 0;
+function showExitToast() {
+  let t = document.getElementById('exit-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'exit-toast';
+    t.style.cssText = 'position:fixed;bottom:calc(var(--tab-h)+16px);left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:0.85rem;z-index:9999;pointer-events:none;transition:opacity 0.3s;';
+    document.body.appendChild(t);
+  }
+  t.textContent = '한 번 더 누르면 종료됩니다';
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2000);
 }
 
 // 뒤로가기 처리
@@ -944,7 +959,17 @@ window.addEventListener('popstate', function(e) {
     return;
   }
 
-  // 3. 홈이면 → 앱 종료 (브라우저 기본 동작)
+  // 3. 홈이면 → 2초 내 2회 뒤로가기 시 종료
+  const now = Date.now();
+  if (now - _backPressTime < 2000) {
+    // 실제 종료 (히스토리 소진 → 브라우저/앱 종료)
+    history.back();
+    return;
+  }
+  _backPressTime = now;
+  showExitToast();
+  // 히스토리 유지 (다시 현재 탭 push)
+  history.pushState({ tab: 0 }, '');
 });
 
 // 산책 모달
