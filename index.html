@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.5.3-diag">
+<meta name="app-version" content="v1.5.3">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -783,7 +783,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.5.3-diag
+      댕댕케어 v1.5.3
     </div>
     <div style="height:8px"></div>
   </div>
@@ -1056,20 +1056,6 @@ function saveWalkData(data) {
 }
 
 function initWalkList() {
-  // ── 진단 오버레이 ──
-  (function() {
-    let d = document.getElementById('__walkDebug');
-    if (!d) { d = document.createElement('div'); d.id='__walkDebug';
-      d.style='position:fixed;top:60px;left:10px;right:10px;background:#000;color:#0f0;font-size:11px;z-index:9999;padding:8px;border-radius:8px;max-height:120px;overflow:auto;font-family:monospace;';
-      document.body.appendChild(d); }
-    const key = getWalkKey();
-    const raw = localStorage.getItem(key);
-    const cal  = localStorage.getItem('dc_cal');
-    const parsed = raw ? JSON.parse(raw) : [];
-    d.innerHTML = '🔍 walkKey: '+key+'<br>'
-      +'💾 walkSaved: '+JSON.stringify(parsed)+'<br>'
-      +'📅 calDB (walk): '+(()=>{try{const c=JSON.parse(cal);const dogs=getDogs();let out=[];dogs.forEach(g=>{const dd=(c[g.id]||{});Object.keys(dd).filter(k=>k.startsWith('2026-03-20')).forEach(k=>{const ws=dd[k].filter(r=>r.type==='walk');if(ws.length)out.push(g.id+':'+JSON.stringify(ws));});});return out.join(' | ')||'없음';}catch(e){return '파싱오류';}})();
-  })();
   const colors = ['var(--accent)','var(--accent3)','#60a5fa','#ec4899','#4ade80','#a855f7','#f59e0b'];
   const rawFamily = getFamilyDB();
   const family = rawFamily.map((f, i) => ({
@@ -1231,6 +1217,7 @@ function _registerWalk(who, time, dateStr) {
 // ── 산책 완료 취소 공통 함수 ──
 function _unregisterWalk(who, dateStr) {
   if (!who || !dateStr) return;
+  // 1. walkSaved 삭제
   const saved = loadWalkData();
   const wIdx = saved.findIndex(w => w.name === who);
   if (wIdx !== -1) {
@@ -1238,6 +1225,7 @@ function _unregisterWalk(who, dateStr) {
     saveWalkData(saved);
     walkCount = Math.max(0, walkCount - 1);
   }
+  // 2. 달력 삭제
   const db = calGetDB();
   const dogs = getDogs();
   const targetId = dogs[0]?.id || 'dog1';
@@ -1246,7 +1234,17 @@ function _unregisterWalk(who, dateStr) {
     if (cIdx !== -1) db[targetId][dateStr].splice(cIdx, 1);
     calSaveDB(db);
   }
-  // 산책기록 탭이 열려있으면 핀 목록 완료 배지 갱신
+  // 3. wmapDB 핀 삭제 (오늘 날짜, who 일치 핀)
+  const wmapDb = wmapGetDB();
+  const wmapDogId = _wmapSelectedDog || dogs[0]?.id || 'dog1';
+  if (wmapDb[wmapDogId]?.[dateStr]) {
+    const pIdx = wmapDb[wmapDogId][dateStr].findIndex(p => p.who === who);
+    if (pIdx !== -1) {
+      wmapDb[wmapDogId][dateStr].splice(pIdx, 1);
+      wmapSaveDB(wmapDb);
+    }
+  }
+  // 4. 산책기록 탭이 열려있으면 핀 목록 갱신
   if (typeof _currentTab !== 'undefined' && _currentTab === 2) {
     if (typeof wmapRenderTodayPins === 'function') wmapRenderTodayPins();
   }
