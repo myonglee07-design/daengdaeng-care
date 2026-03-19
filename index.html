@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.5.1">
+<meta name="app-version" content="v1.5.2">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -783,7 +783,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.5.1
+      댕댕케어 v1.5.2
     </div>
     <div style="height:8px"></div>
   </div>
@@ -1070,6 +1070,8 @@ function initWalkList() {
   const doneList = document.getElementById('walk-done-list');
   // 전체 목록 (펼쳤을 때)
   const fullList = document.getElementById('walk-list');
+  // DOM 없어도 walkCount + 홈 상단 진행바/카운트는 갱신 (탭 무관)
+  updateWalkUI();
   if (!doneList || !fullList) return;
 
   const doneItems = saved.filter(w => w.done);
@@ -1206,6 +1208,10 @@ function _registerWalk(who, time, dateStr) {
   const alreadyInCal = db[targetId][dateStr].some(r => r.type === 'walk' && r.note === who);
   if (!alreadyInCal) db[targetId][dateStr].push({ type: 'walk', note: who, time });
   calSaveDB(db);
+  // 산책기록 탭이 열려있으면 핀 목록 완료 배지 갱신
+  if (typeof _currentTab !== 'undefined' && _currentTab === 2) {
+    if (typeof wmapRenderTodayPins === 'function') wmapRenderTodayPins();
+  }
   return true;
 }
 // ── 산책 완료 취소 공통 함수 ──
@@ -1225,6 +1231,10 @@ function _unregisterWalk(who, dateStr) {
     const cIdx = db[targetId][dateStr].findIndex(r => r.type === 'walk' && r.note === who);
     if (cIdx !== -1) db[targetId][dateStr].splice(cIdx, 1);
     calSaveDB(db);
+  }
+  // 산책기록 탭이 열려있으면 핀 목록 완료 배지 갱신
+  if (typeof _currentTab !== 'undefined' && _currentTab === 2) {
+    if (typeof wmapRenderTodayPins === 'function') wmapRenderTodayPins();
   }
 }
 
@@ -3973,18 +3983,25 @@ function wmapRenderTodayPins() {
     el.innerHTML = '<div style="font-size:0.82rem;color:var(--text3);padding:8px 0;">아직 찍은 핀이 없어요. 산책하고 위치를 기록해보세요!</div>';
     return;
   }
-  el.innerHTML = pins.map((p, i) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border-radius:10px;border:1px solid var(--border);margin-bottom:8px;">
+  const _doneWalks = loadWalkData();
+  el.innerHTML = pins.map((p, i) => {
+    const isDone = p.who && _doneWalks.find(w => w.name === p.who);
+    const doneTag = isDone
+      ? `<span style="display:inline-flex;align-items:center;gap:2px;font-size:0.68rem;font-weight:700;color:var(--green,#22c55e);background:color-mix(in srgb,var(--green,#22c55e) 12%,transparent);padding:1px 6px;border-radius:10px;margin-left:4px;">✓ 완료</span>`
+      : '';
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border-radius:10px;border:1px solid ${isDone ? 'color-mix(in srgb,var(--green,#22c55e) 30%,transparent)' : 'var(--border)'};margin-bottom:8px;">
       <div style="font-size:1.3rem;flex-shrink:0;">📍</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:0.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+        <div style="font-size:0.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}${doneTag}</div>
         <div style="font-size:0.75rem;color:var(--text2);margin-top:2px;">
           ${p.time}${p.who ? ' · 👤 ' + p.who : ''}${p.memo ? ' · ' + p.memo : ''}
         </div>
       </div>
       <button onclick="wmapDeletePin('${dogId}','${today}',${i})"
         style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text3);font-size:0.72rem;cursor:pointer;font-family:inherit;flex-shrink:0;">삭제</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function wmapDeletePin(dogId, dateStr, idx) {
