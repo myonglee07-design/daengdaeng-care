@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.4.1">
+<meta name="app-version" content="v1.4.2">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -780,7 +780,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.4.1
+      댕댕케어 v1.4.2
     </div>
     <div style="height:8px"></div>
   </div>
@@ -1156,11 +1156,7 @@ function walkLocUseFav(idx) {
         className: '', iconSize: [24,24], iconAnchor: [12,12]
       });
       _wmapTempMarker = L.marker([f.lat, f.lng], { icon: tempIcon }).addTo(_wmapMap);
-      wmapOpenPinModal();
-      setTimeout(() => {
-        const nameEl = document.getElementById('wmap-pin-name');
-        if (nameEl) nameEl.value = f.name;
-      }, 50);
+      wmapOpenPinModal(f.name);
     }
   }, 350);
 }
@@ -3620,12 +3616,7 @@ function wmapUseFav(idx) {
     className: '', iconSize: [24,24], iconAnchor: [12,12]
   });
   _wmapTempMarker = L.marker([f.lat, f.lng], { icon: tempIcon }).addTo(_wmapMap);
-  // 핀 이름 자동 입력 후 모달 열기
-  wmapOpenPinModal();
-  setTimeout(() => {
-    const nameEl = document.getElementById('wmap-pin-name');
-    if (nameEl) nameEl.value = f.name;
-  }, 50);
+  wmapOpenPinModal(f.name);
 }
 function wmapDeleteFav(idx) {
   const favs = wmapGetFavs();
@@ -3810,8 +3801,8 @@ function wmapGoToMyLocation() {
   );
 }
 
-function wmapOpenPinModal() {
-  document.getElementById('wmap-pin-name').value = '';
+function wmapOpenPinModal(prefillName) {
+  document.getElementById('wmap-pin-name').value = prefillName || '';
   document.getElementById('wmap-pin-memo').value = '';
   document.getElementById('wmap-pin-fav').checked = false;
   _wmapSelectedWho = null;
