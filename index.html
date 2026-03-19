@@ -28,6 +28,10 @@
   body.theme-green  { --accent:#34c97a; }
   body.theme-pink   { --accent:#f56eb3; }
   body.theme-purple { --accent:#a47af5; }
+  body.theme-red    { --accent:#ef4444; }
+  body.theme-teal   { --accent:#14b8a6; }
+  body.theme-indigo { --accent:#6366f1; }
+  body.theme-yellow { --accent:#eab308; }
 
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html { font-size:16px; }
@@ -215,10 +219,19 @@
 </head>
 <body class="theme-orange">
 
-<div class="header">
+<div class="header" style="flex-wrap:wrap;gap:4px;">
   <div class="header-left">
     <h1>댕댕케어 🐾</h1>
     <p id="today-date"></p>
+  </div>
+  <!-- 날씨 (중앙) -->
+  <div id="header-weather" style="display:flex;align-items:center;gap:6px;flex:1;justify-content:center;min-width:120px;">
+    <span id="hw-icon" style="font-size:1.1rem;">⏳</span>
+    <div>
+      <div id="hw-main" style="font-size:0.78rem;font-weight:700;color:var(--text);line-height:1.2;">불러오는 중</div>
+      <div id="hw-walk" style="font-size:0.65rem;font-weight:700;line-height:1.2;"></div>
+    </div>
+    <span id="hw-temp" style="font-size:1rem;font-weight:800;color:var(--accent);"></span>
   </div>
   <div class="header-right">
     <div class="hdr-btn" id="theme-btn" onclick="toggleTheme()">☀️</div>
@@ -534,6 +547,10 @@
           <div class="color-dot" style="background:#34c97a" data-theme="green"  onclick="setColor(this,'green')"></div>
           <div class="color-dot" style="background:#f56eb3" data-theme="pink"   onclick="setColor(this,'pink')"></div>
           <div class="color-dot" style="background:#a47af5" data-theme="purple" onclick="setColor(this,'purple')"></div>
+          <div class="color-dot" style="background:#ef4444" data-theme="red"    onclick="setColor(this,'red')"></div>
+          <div class="color-dot" style="background:#14b8a6" data-theme="teal"   onclick="setColor(this,'teal')"></div>
+          <div class="color-dot" style="background:#6366f1" data-theme="indigo" onclick="setColor(this,'indigo')"></div>
+          <div class="color-dot" style="background:#eab308" data-theme="yellow" onclick="setColor(this,'yellow')"></div>
         </div>
       </div>
     </div>
@@ -812,6 +829,9 @@ function switchTab(idx, fromPopstate){
   if (idx === 1) { calRenderDogSelect(); calRender(); setTimeout(weightRender, 100); loadWeather(); }
   if (idx === 3) { renderBreedList(); closeBreedDetail(); document.getElementById('breed-search').value=''; currentBreeds=[...BREEDS]; }
   if (idx === 4) { renderDogSettings(); renderFamilyList(); }
+  // 탭 전환 시 맨 위로 스크롤
+  const activeView = document.querySelectorAll('.view')[idx];
+  if (activeView) activeView.scrollTop = 0;
 
   if (!fromPopstate) {
     if (idx === 0) {
@@ -2182,9 +2202,9 @@ const WMO_ICON = {
 
 async function loadWeather() {
   const card = document.getElementById('weather-card');
-  if (!card) return;
   if (!navigator.geolocation) {
-    document.getElementById('weather-main').textContent = '위치 사용 불가';
+    const hwMain = document.getElementById('hw-main');
+    if (hwMain) hwMain.textContent = '위치 불가';
     return;
   }
   navigator.geolocation.getCurrentPosition(async pos => {
@@ -2224,12 +2244,24 @@ async function loadWeather() {
         walkColor = 'var(--green)';
       }
 
-      document.getElementById('weather-icon').textContent = icon;
-      document.getElementById('weather-main').textContent = desc;
-      document.getElementById('weather-sub').textContent = `체감 ${feel}°C · 바람 ${wind}km/h`;
-      document.getElementById('weather-temp').textContent = `${temp}°C`;
-      document.getElementById('weather-walk').style.color = walkColor;
-      document.getElementById('weather-walk').textContent = walkMsg;
+      // 달력 탭 날씨 카드
+      if (document.getElementById('weather-icon')) {
+        document.getElementById('weather-icon').textContent = icon;
+        document.getElementById('weather-main').textContent = desc;
+        document.getElementById('weather-sub').textContent = `체감 ${feel}°C · 바람 ${wind}km/h`;
+        document.getElementById('weather-temp').textContent = `${temp}°C`;
+        document.getElementById('weather-walk').style.color = walkColor;
+        document.getElementById('weather-walk').textContent = walkMsg;
+      }
+      // 홈 헤더 날씨
+      const hwIcon = document.getElementById('hw-icon');
+      const hwMain = document.getElementById('hw-main');
+      const hwWalk = document.getElementById('hw-walk');
+      const hwTemp = document.getElementById('hw-temp');
+      if (hwIcon) hwIcon.textContent = icon;
+      if (hwMain) hwMain.textContent = `${desc}`;
+      if (hwWalk) { hwWalk.textContent = walkMsg.replace('✅ ','').replace('☔ ','').replace('🌡️ ','').replace('🥶 ','').replace('💨 ',''); hwWalk.style.color = walkColor; }
+      if (hwTemp) hwTemp.textContent = `${temp}°C`;
 
       // 카드 그라데이션 색상 업데이트
       if ([61,63,65,80,81,82,95,96,99].includes(code) || rain > 0.5) {
@@ -2240,13 +2272,21 @@ async function loadWeather() {
         card.style.borderColor = 'color-mix(in srgb,#f59e0b 30%,var(--border))';
       }
     } catch(e) {
-      document.getElementById('weather-main').textContent = '날씨 로드 실패';
-      document.getElementById('weather-sub').textContent = '네트워크 확인';
+      if (document.getElementById('weather-main')) {
+        document.getElementById('weather-main').textContent = '날씨 로드 실패';
+        document.getElementById('weather-sub').textContent = '네트워크 확인';
+      }
+      const hwMain2 = document.getElementById('hw-main');
+      if (hwMain2) hwMain2.textContent = '로드 실패';
     }
   }, () => {
-    document.getElementById('weather-main').textContent = '위치 권한 필요';
-    document.getElementById('weather-sub').textContent = '브라우저에서 위치 허용해주세요';
-    document.getElementById('weather-icon').textContent = '📍';
+    if (document.getElementById('weather-main')) {
+      document.getElementById('weather-main').textContent = '위치 권한 필요';
+      document.getElementById('weather-sub').textContent = '브라우저에서 위치 허용해주세요';
+      document.getElementById('weather-icon').textContent = '📍';
+    }
+    const hwMain3 = document.getElementById('hw-main');
+    if (hwMain3) hwMain3.textContent = '위치 권한 필요';
   });
 }
 
