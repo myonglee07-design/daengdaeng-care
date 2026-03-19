@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
+<meta name="app-version" content="v1.0.0">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -601,11 +602,23 @@
 
     <div id="dog-list-settings"></div>
 
-    <div class="section-title">가족 관리</div>
-    <div class="settings-section">
-      <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon">👨</span><div><div class="settings-row-label">Myong</div><div class="settings-row-sub">관리자</div></div></div><span class="settings-row-value">나</span></div>
-      <div class="settings-row"><div class="settings-row-left"><span class="settings-row-icon">👩</span><div><div class="settings-row-label">아내</div><div class="settings-row-sub">가족</div></div></div><span class="settings-row-value">초대됨</span></div>
-      <div class="settings-row" style="border-bottom:none"><div class="settings-row-left"><span class="settings-row-icon">➕</span><div><div class="settings-row-label">가족 추가</div></div></div><span style="color:var(--text3)">›</span></div>
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>가족 관리</span>
+      <button onclick="familyShowAdd()" style="font-size:0.75rem;padding:4px 10px;background:var(--accent);border:none;border-radius:20px;color:#000;font-weight:700;cursor:pointer;font-family:inherit;">+ 추가</button>
+    </div>
+    <div id="family-list"></div>
+    <!-- 가족 추가/수정 폼 (목록 아래) -->
+    <div id="family-form" style="display:none;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;">
+      <div style="font-size:0.85rem;font-weight:700;margin-bottom:10px;" id="family-form-title">가족 추가</div>
+      <div style="display:grid;gap:8px;">
+        <input id="family-form-name" type="text" placeholder="이름 (예: 아내, 엄마, 아들)" style="width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.85rem;font-family:inherit;">
+        <input id="family-form-role" type="text" placeholder="역할 (예: 가족, 관리자)" style="width:100%;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.85rem;font-family:inherit;">
+        <input type="hidden" id="family-form-idx" value="-1">
+        <div style="display:flex;gap:8px;">
+          <button onclick="familySave()" style="flex:1;padding:10px;background:var(--accent);border:none;border-radius:10px;color:#000;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;">저장</button>
+          <button onclick="familyHideForm()" style="padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text2);font-size:0.85rem;cursor:pointer;font-family:inherit;">취소</button>
+        </div>
+      </div>
     </div>
     <!-- 앱 설치 -->
     <div class="section-title" style="margin-top:8px;">앱 접속 주소 📲</div>
@@ -634,7 +647,11 @@
       <div id="backup-status" style="font-size:0.75rem;color:var(--text3);margin-top:10px;text-align:center;"></div>
     </div>
 
-    <div style="height:20px"></div>
+    <!-- 앱 버전 -->
+    <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
+      댕댕케어 v1.0.0
+    </div>
+    <div style="height:8px"></div>
   </div>
 
 </div>
@@ -794,7 +811,7 @@ function switchTab(idx, fromPopstate){
   if (idx === 0) { foodRender(); renderHomeDogs(); renderHomeNextSchedule(); initWalkList(); }
   if (idx === 1) { calRenderDogSelect(); calRender(); setTimeout(weightRender, 100); loadWeather(); }
   if (idx === 3) { renderBreedList(); closeBreedDetail(); document.getElementById('breed-search').value=''; currentBreeds=[...BREEDS]; }
-  if (idx === 4) { renderDogSettings(); }
+  if (idx === 4) { renderDogSettings(); renderFamilyList(); }
 
   if (!fromPopstate) {
     if (idx === 0) {
@@ -858,12 +875,13 @@ function saveWalkData(data) {
 }
 
 function initWalkList() {
-  const family = [
-    { name:'Myong', emoji:'나', color:'var(--accent)' },
-    { name:'아내',  emoji:'아', color:'var(--accent3)' },
-    { name:'아들',  emoji:'들', color:'#60a5fa' },
-    { name:'딸',    emoji:'딸', color:'#ec4899' },
-  ];
+  const colors = ['var(--accent)','var(--accent3)','#60a5fa','#ec4899','#4ade80','#a855f7','#f59e0b'];
+  const rawFamily = getFamilyDB();
+  const family = rawFamily.map((f, i) => ({
+    name: f.name,
+    emoji: f.name.slice(0,1),
+    color: colors[i % colors.length]
+  }));
   const saved = loadWalkData();
   walkCount = saved.filter(w => w.done).length;
 
@@ -2597,7 +2615,7 @@ function getVaccineSchedule(dog) {
           const fertileEnd   = new Date(nextEstrus); fertileEnd.setDate(fertileEnd.getDate()+14);
           const fdiff = Math.ceil((fertileStart - today)/(1000*60*60*24));
           if (fdiff >= -7 && fdiff <= 365)
-            schedules.push({ dateStr: fertileStart.toISOString().split('T')[0], diff: fdiff, label:`❤️ 임신 가능 기간 (~${fertileEnd.getMonth()+1}/${fertileEnd.getDate()}) · 참고용`, icon:'❤️', dogName: dog.name });
+            schedules.push({ dateStr: fertileStart.toISOString().split('T')[0], diff: fdiff, label:`❤️ 임신 가능 기간 (~${fertileEnd.getMonth()+1}/${fertileEnd.getDate()}) · 교배 적기 · 참고용`, icon:'❤️', dogName: dog.name });
           // 👻 가짜임신 주의 (+40~70일, 중간값 55일)
           const fakePreg = new Date(nextEstrus); fakePreg.setDate(fakePreg.getDate()+55);
           const fpdiff = Math.ceil((fakePreg - today)/(1000*60*60*24));
@@ -2862,6 +2880,193 @@ function copyAppUrl() {
       document.getElementById('copy-icon').textContent = '📋';
       document.getElementById('copy-msg').style.display = 'none';
     }, 2000);
+  });
+}
+
+
+// ── 가족 관리 ──
+function getFamilyDB() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('dc_family') || 'null');
+    if (saved) return saved;
+  } catch {}
+  // 기본값
+  return [
+    { name: 'Myong', role: '관리자', emoji: '👨' },
+    { name: '아내',  role: '가족',   emoji: '👩' },
+    { name: '아들',  role: '가족',   emoji: '👦' },
+    { name: '딸',    role: '가족',   emoji: '👧' },
+  ];
+}
+function saveFamilyDB(data) {
+  localStorage.setItem('dc_family', JSON.stringify(data));
+}
+
+function renderFamilyList() {
+  const list = document.getElementById('family-list');
+  if (!list) return;
+  const family = getFamilyDB();
+  let html = '';
+  family.forEach(function(f, i) {
+    const canDelete = family.length > 1;
+    html += '<div id="fitem-' + i + '" style="background:var(--card);border-radius:10px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;">';
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">';
+    html += '<span style="font-size:1.5rem;">' + (f.emoji||'👤') + '</span>';
+    html += '<div style="flex:1;"><div style="font-size:0.9rem;font-weight:700;">' + f.name + '</div>';
+    html += '<div style="font-size:0.75rem;color:var(--text2);">' + (f.role||'가족') + '</div></div>';
+    html += '<div style="display:flex;gap:6px;">';
+    html += '<button onclick="familyShowEdit(' + i + ')" style="padding:4px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:0.75rem;cursor:pointer;font-family:inherit;">수정</button>';
+    if (canDelete) {
+      html += '<button onclick="familyConfirmDelete(' + i + ')" style="padding:4px 10px;background:color-mix(in srgb,var(--accent2) 12%,transparent);border:1px solid var(--accent2);border-radius:8px;color:var(--accent2);font-size:0.75rem;cursor:pointer;font-family:inherit;">삭제</button>';
+    }
+    html += '</div></div>';
+    // 삭제 확인 바 (숨겨진 상태)
+    if (canDelete) {
+      html += '<div id="fdel-' + i + '" style="display:none;padding:10px 14px;background:color-mix(in srgb,var(--accent2) 8%,transparent);border-top:1px solid var(--border);display:none;">';
+      html += '<div style="font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--accent2);">"' + f.name + '" 삭제할까요?</div>';
+      html += '<div style="display:flex;gap:8px;">';
+      html += '<button onclick="familyDelete(' + i + ')" style="flex:1;padding:8px;background:var(--accent2);border:none;border-radius:8px;color:#fff;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">삭제</button>';
+      html += '<button onclick="familyCancelDelete(' + i + ')" style="flex:1;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:0.82rem;cursor:pointer;font-family:inherit;">취소</button>';
+      html += '</div></div>';
+    }
+    html += '</div>';
+  });
+  list.innerHTML = html;
+
+  // 산책 모달 가족 목록도 동기화
+  const whoList = document.querySelector('.who-list');
+  if (whoList) {
+    const emojis = ['👨','👩','👦','👧','👴','👵','🧑'];
+    whoList.innerHTML = family.map((f, i) =>
+      `<button class="who-btn" onclick="selectWho(this,'${f.name}')"><span class="who-emoji">${f.emoji||emojis[i%emojis.length]}</span>${f.name}</button>`
+    ).join('');
+  }
+  // initWalkList도 갱신
+  initWalkList();
+}
+
+function familyShowAdd() {
+  document.getElementById('family-form-title').textContent = '가족 추가';
+  document.getElementById('family-form-name').value = '';
+  document.getElementById('family-form-role').value = '';
+  document.getElementById('family-form-idx').value = '-1';
+  document.getElementById('family-form').style.display = 'block';
+  document.getElementById('family-form-name').focus();
+}
+
+function familyShowEdit(idx) {
+  const f = getFamilyDB()[idx];
+  document.getElementById('family-form-title').textContent = '가족 수정';
+  document.getElementById('family-form-name').value = f.name;
+  document.getElementById('family-form-role').value = f.role || '';
+  document.getElementById('family-form-idx').value = idx;
+  document.getElementById('family-form').style.display = 'block';
+  document.getElementById('family-form-name').focus();
+}
+
+function familyHideForm() {
+  document.getElementById('family-form').style.display = 'none';
+}
+
+function familySave() {
+  const name = document.getElementById('family-form-name').value.trim();
+  if (!name) { alert('이름을 입력해주세요'); return; }
+  const role = document.getElementById('family-form-role').value.trim() || '가족';
+  const idx = parseInt(document.getElementById('family-form-idx').value);
+  const emojis = ['👨','👩','👦','👧','👴','👵','🧑'];
+  const family = getFamilyDB();
+  if (idx === -1) {
+    family.push({ name, role, emoji: emojis[family.length % emojis.length] });
+  } else {
+    family[idx] = { ...family[idx], name, role };
+  }
+  saveFamilyDB(family);
+  familyHideForm();
+  renderFamilyList();
+}
+
+function familyConfirmDelete(idx) {
+  const el = document.getElementById('fdel-' + idx);
+  if (el) el.style.display = 'block';
+}
+function familyCancelDelete(idx) {
+  const el = document.getElementById('fdel-' + idx);
+  if (el) el.style.display = 'none';
+}
+function familyDelete(idx) {
+  const family = getFamilyDB();
+  if (family.length <= 1) return;
+  family.splice(idx, 1);
+  saveFamilyDB(family);
+  renderFamilyList();
+  initWalkList();
+}
+
+
+// ── 브라우저 알림 ──
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendNotification(title, body, icon) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: icon || 'icon-192.png' });
+  }
+}
+
+// 생일 & 임박 일정 알림 체크 (앱 시작 시)
+function checkTodayAlerts() {
+  requestNotificationPermission();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = today.toISOString().split('T')[0];
+  const dogs = getDogs();
+
+  dogs.forEach(dog => {
+    // 생일 체크
+    if (dog.birth) {
+      const p = dog.birth.split('-');
+      if (p.length >= 3) {
+        const thisYear = today.getFullYear();
+        const bd = new Date(thisYear, parseInt(p[1])-1, parseInt(p[2]));
+        const diff = Math.ceil((bd - today) / (1000*60*60*24));
+        if (diff === 0) {
+          const age = thisYear - parseInt(p[0]);
+          sendNotification(`🎂 ${dog.name} 생일이에요!`, `오늘 ${dog.name}의 ${age}번째 생일입니다. 축하해주세요! 🎉`);
+        } else if (diff === 3) {
+          sendNotification(`🎂 ${dog.name} 생일 D-3`, `${dog.name} 생일이 3일 후예요!`);
+        }
+      }
+    }
+
+    // 발정 예상 알림
+    if (dog.sex === 'female' && dog.estrus) {
+      const estrusStart = new Date(dog.estrus);
+      if (!isNaN(estrusStart)) {
+        for (let cycle = 1; cycle <= 6; cycle++) {
+          const next = new Date(estrusStart);
+          next.setDate(next.getDate() + 180 * cycle);
+          const diff = Math.ceil((next - today) / (1000*60*60*24));
+          if (diff === 0) sendNotification(`🌸 ${dog.name} 발정 예상일`, `오늘 ${dog.name}의 발정이 시작될 수 있어요. (참고용)`);
+          else if (diff === 3) sendNotification(`🌸 ${dog.name} 발정 D-3`, `${dog.name} 발정 예상일이 3일 후예요. (참고용)`);
+        }
+      }
+    }
+  });
+
+  // 접종/약 D-3 이하 알림
+  const db = calGetDB();
+  dogs.forEach(dog => {
+    const dogData = db[dog.id] || {};
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + i);
+      const ds = d.toISOString().split('T')[0];
+      (dogData[ds] || []).forEach(r => {
+        if (r.type === 'vaccine') sendNotification(`💉 ${dog.name} 접종 D-${i}`, `${r.note || '예방접종'} 일정이 ${i}일 후예요!`);
+        if (r.type === 'medicine') sendNotification(`💊 ${dog.name} 투약 D-${i}`, `${r.note || '약/구충'} 일정이 ${i}일 후예요!`);
+      });
+    }
   });
 }
 
