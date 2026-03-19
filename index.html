@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.3.9">
+<meta name="app-version" content="v1.4.0">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -541,7 +541,12 @@
     <!-- 지도 뷰 -->
     <div id="wmap-map-view">
       <div style="padding:0 16px 8px;" id="wmap-dog-select"></div>
-      <div id="wmap-leaflet" style="width:100%;height:320px;z-index:1;"></div>
+      <!-- 즐겨찾기 핀 영역 -->
+      <div id="wmap-fav-area" style="padding:0 16px 6px;display:none;">
+        <div style="font-size:0.75rem;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">⭐ 즐겨찾기</div>
+        <div id="wmap-fav-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+      <div id="wmap-leaflet" style="width:100%;height:300px;z-index:1;"></div>
       <div style="padding:12px 16px;display:flex;gap:10px;">
         <button onclick="wmapGoToMyLocation()" id="wmap-goto-btn"
           style="padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">
@@ -775,7 +780,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.3.9
+      댕댕케어 v1.4.0
     </div>
     <div style="height:8px"></div>
   </div>
@@ -1117,6 +1122,18 @@ function cancelWalkByName(name) {
 }
 
 function openWalkModal(){
+  // 위치 기록 여부 먼저 물어보기
+  document.getElementById('walk-location-modal').classList.add('show');
+}
+function walkLocationYes(){
+  document.getElementById('walk-location-modal').classList.remove('show');
+  switchTab(2); // 산책기록 탭으로 이동
+}
+function walkLocationNo(){
+  document.getElementById('walk-location-modal').classList.remove('show');
+  _openWalkModalDirect();
+}
+function _openWalkModalDirect(){
   document.getElementById('walk-modal').classList.add('show');
   selectedWho=null;
   document.querySelectorAll('.who-btn').forEach(b=>b.classList.remove('selected'));
@@ -3527,10 +3544,63 @@ window.fbAutoSave = function() {
 // ──────────────────────────────────────────
 // 산책기록 지도 (Leaflet + OpenStreetMap)
 // ──────────────────────────────────────────
+// 산책 즐겨찾기
+function wmapGetFavs() {
+  try { return JSON.parse(localStorage.getItem('dc_wmap_favs') || '[]'); } catch { return []; }
+}
+function wmapSaveFavs(favs) {
+  localStorage.setItem('dc_wmap_favs', JSON.stringify(favs));
+}
+function wmapRenderFavs() {
+  const favs = wmapGetFavs();
+  const area = document.getElementById('wmap-fav-area');
+  const list = document.getElementById('wmap-fav-list');
+  if (!area || !list) return;
+  if (favs.length === 0) { area.style.display = 'none'; return; }
+  area.style.display = 'block';
+  list.innerHTML = favs.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:0;background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;">
+      <button onclick="wmapUseFav(${i})"
+        style="padding:6px 12px;background:transparent;border:none;color:var(--accent);font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;">
+        ⭐ ${f.name}
+      </button>
+      <button onclick="wmapDeleteFav(${i})"
+        style="padding:6px 8px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--text3);font-size:0.75rem;cursor:pointer;font-family:inherit;">✕</button>
+    </div>`).join('');
+}
+function wmapUseFav(idx) {
+  const favs = wmapGetFavs();
+  const f = favs[idx];
+  if (!f || !_wmapMap) return;
+  _wmapPendingLatLng = { lat: f.lat, lng: f.lng };
+  _wmapMap.setView([f.lat, f.lng], 17);
+  // 임시 핀 표시
+  if (_wmapTempMarker) _wmapMap.removeLayer(_wmapTempMarker);
+  const tempIcon = L.divIcon({
+    html: '<div style="width:24px;height:24px;border-radius:50%;background:var(--accent,#f5a623);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>',
+    className: '', iconSize: [24,24], iconAnchor: [12,12]
+  });
+  _wmapTempMarker = L.marker([f.lat, f.lng], { icon: tempIcon }).addTo(_wmapMap);
+  // 핀 이름 자동 입력 후 모달 열기
+  wmapOpenPinModal();
+  setTimeout(() => {
+    const nameEl = document.getElementById('wmap-pin-name');
+    if (nameEl) nameEl.value = f.name;
+  }, 50);
+}
+function wmapDeleteFav(idx) {
+  const favs = wmapGetFavs();
+  favs.splice(idx, 1);
+  wmapSaveFavs(favs);
+  wmapRenderFavs();
+}
+
+
 let _wmapMap = null;
 let _wmapMarkers = [];
 let _wmapPendingLatLng = null;
 let _wmapMyCircle = null;
+let _wmapTempMarker = null;
 let _wmapSelectedDog = null;
 let _wmapSelectedWho = null;
 
@@ -3570,9 +3640,16 @@ function wmapInit() {
     }).addTo(_wmapMap);
     _wmapMap.setView([37.5665, 126.9780], 14);
     setTimeout(() => _wmapMap.invalidateSize(), 200);
-    // 지도 탭 → 해당 위치에 핀 찍기
+    // 지도 탭 → 임시 핀 표시 후 모달 오픈
     _wmapMap.on('click', function(e) {
       _wmapPendingLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
+      // 기존 임시 핀 제거
+      if (_wmapTempMarker) _wmapMap.removeLayer(_wmapTempMarker);
+      const tempIcon = L.divIcon({
+        html: '<div style="width:24px;height:24px;border-radius:50%;background:var(--accent,#f5a623);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);animation:wmapPulse 0.3s ease;"></div>',
+        className: '', iconSize: [24,24], iconAnchor: [12,12]
+      });
+      _wmapTempMarker = L.marker([e.latlng.lat, e.latlng.lng], { icon: tempIcon }).addTo(_wmapMap);
       wmapOpenPinModal();
     });
     // 최초 진입 시 watchPosition으로 빠른 위치 획득
@@ -3604,6 +3681,7 @@ function wmapInit() {
   }
 
   wmapRenderTodayPins();
+  wmapRenderFavs();
 }
 
 function wmapSelectDog(id) {
@@ -3696,6 +3774,7 @@ function wmapGoToMyLocation() {
 function wmapOpenPinModal() {
   document.getElementById('wmap-pin-name').value = '';
   document.getElementById('wmap-pin-memo').value = '';
+  document.getElementById('wmap-pin-fav').checked = false;
   _wmapSelectedWho = null;
   // 가족 버튼 렌더
   const family = getFamilyDB();
@@ -3723,12 +3802,15 @@ function wmapSelectWho(btn, name) {
 function wmapClosePinModal() {
   document.getElementById('wmap-pin-modal').classList.remove('show');
   _wmapPendingLatLng = null;
+  // 임시 핀 제거
+  if (_wmapTempMarker) { _wmapMap.removeLayer(_wmapTempMarker); _wmapTempMarker = null; }
 }
 
 function wmapSavePin() {
   if (!_wmapPendingLatLng) return;
   const name = document.getElementById('wmap-pin-name').value.trim() || '산책 포인트';
   const memo = document.getElementById('wmap-pin-memo').value.trim();
+  const isFav = document.getElementById('wmap-pin-fav').checked;
   const db = wmapGetDB();
   const dogId = _wmapSelectedDog || getDogs()[0]?.id || 'dog1';
   if (!db[dogId]) db[dogId] = {};
@@ -3745,10 +3827,20 @@ function wmapSavePin() {
   };
   db[dogId][today].push(pin);
   wmapSaveDB(db);
+  // 즐겨찾기 저장
+  if (isFav && _wmapPendingLatLng) {
+    const favs = wmapGetFavs();
+    const favName = name || '즐겨찾기';
+    if (!favs.find(f => f.name === favName)) {
+      favs.push({ name: favName, lat: _wmapPendingLatLng.lat, lng: _wmapPendingLatLng.lng });
+      wmapSaveFavs(favs);
+    }
+  }
   wmapClosePinModal();
   // 지도에 마커 추가
   wmapAddMarker(pin);
   wmapRenderTodayPins();
+  wmapRenderFavs();
 }
 
 function wmapAddMarker(pin) {
@@ -3852,12 +3944,38 @@ document.addEventListener('touchmove', e=>{if(e.touches.length>1)e.preventDefaul
     <div id="wmap-pin-who" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
     <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">메모 (선택)</div>
     <input id="wmap-pin-memo" type="text" placeholder="예: 오늘 신나게 뛰었어요!"
-      style="width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;margin-bottom:16px;">
+      style="width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;margin-bottom:10px;">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;padding:8px 10px;background:var(--bg3);border-radius:10px;border:1px solid var(--border);">
+      <input type="checkbox" id="wmap-pin-fav" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;">
+      <span style="font-size:0.85rem;font-weight:600;">⭐ 즐겨찾기 등록 (다음에 바로 사용)</span>
+    </label>
     <div style="display:flex;gap:10px;">
       <button onclick="wmapSavePin()"
         style="flex:1;padding:12px;background:var(--accent);border:none;border-radius:10px;color:#000;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;">저장</button>
       <button onclick="wmapClosePinModal()"
         style="padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text2);cursor:pointer;font-family:inherit;">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 산책 위치 기록 여부 모달 -->
+<div id="walk-location-modal" class="modal-overlay" onclick="if(event.target===this)walkLocationNo()">
+  <div class="modal" style="padding:24px 20px 32px;">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:2.5rem;margin-bottom:10px;">🗺️</div>
+      <div style="font-size:1.05rem;font-weight:800;margin-bottom:6px;">산책 위치도 기록할까요?</div>
+      <div style="font-size:0.82rem;color:var(--text2);">지도에서 산책한 곳에 핀을 찍을 수 있어요</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="walkLocationNo()"
+        style="flex:1;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;">
+        아니요, 그냥 체크
+      </button>
+      <button onclick="walkLocationYes()"
+        style="flex:1;padding:13px;background:var(--accent);border:none;border-radius:12px;color:#000;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;">
+        네, 지도로 이동
+      </button>
     </div>
   </div>
 </div>
