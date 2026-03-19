@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.3.6">
+<meta name="app-version" content="v1.3.8">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -772,7 +772,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.3.6
+      댕댕케어 v1.3.8
     </div>
     <div style="height:8px"></div>
   </div>
@@ -3527,6 +3527,7 @@ window.fbAutoSave = function() {
 let _wmapMap = null;
 let _wmapMarkers = [];
 let _wmapPendingLatLng = null;
+let _wmapMyCircle = null;
 let _wmapSelectedDog = null;
 let _wmapSelectedWho = null;
 
@@ -3564,10 +3565,32 @@ function wmapInit() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19
     }).addTo(_wmapMap);
-    // 기본 위치: 서울
     _wmapMap.setView([37.5665, 126.9780], 14);
-    // 지도 탭 열릴 때 resize 처리
     setTimeout(() => _wmapMap.invalidateSize(), 200);
+    // 최초 진입 시 watchPosition으로 빠른 위치 획득
+    if (navigator.geolocation) {
+      const locBtn = document.getElementById('wmap-locate-btn');
+      if (locBtn) { locBtn.textContent = '📡 위치 찾는 중...'; locBtn.disabled = true; }
+      let _initWatchId = navigator.geolocation.watchPosition(
+        pos => {
+          // 첫 fix 즉시 사용 후 watch 해제
+          navigator.geolocation.clearWatch(_initWatchId);
+          const lat = pos.coords.latitude, lng = pos.coords.longitude;
+          _wmapMap.setView([lat, lng], 16);
+          if (locBtn) { locBtn.textContent = '📍 현재 위치 핀 찍기'; locBtn.disabled = false; }
+          if (_wmapMyCircle) _wmapMap.removeLayer(_wmapMyCircle);
+          _wmapMyCircle = L.circleMarker([lat, lng], {
+            radius: 8, color: '#4b9ef5', fillColor: '#4b9ef5',
+            fillOpacity: 0.8, weight: 2
+          }).addTo(_wmapMap).bindPopup('📍 현재 위치');
+        },
+        () => {
+          navigator.geolocation.clearWatch(_initWatchId);
+          if (locBtn) { locBtn.textContent = '📍 현재 위치 핀 찍기'; locBtn.disabled = false; }
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    }
   } else {
     setTimeout(() => _wmapMap.invalidateSize(), 200);
   }
@@ -3600,7 +3623,7 @@ function wmapTab(tab) {
   }
 }
 
-// 현재 위치로 핀 찍기 (2단계: 빠른 위치 → 정밀 보정)
+// 현재 위치로 핀 찍기 (watchPosition - 즉시 반환)
 function wmapLocate() {
   const btn = document.getElementById('wmap-locate-btn');
   btn.textContent = '📡 위치 찾는 중...';
@@ -3609,43 +3632,30 @@ function wmapLocate() {
     alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
     btn.textContent = '📍 현재 위치 핀 찍기'; btn.disabled = false; return;
   }
-  let _modalOpened = false;
-
-  // 1단계: 빠른 네트워크 기반 위치 (3초 내)
-  navigator.geolocation.getCurrentPosition(
+  let _locWatchId = navigator.geolocation.watchPosition(
     pos => {
-      const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      _wmapPendingLatLng = { lat, lng };
-      _wmapMap.setView([lat, lng], 16);
-      btn.textContent = '📍 현재 위치 핀 찍기'; btn.disabled = false;
-      if (!_modalOpened) { _modalOpened = true; wmapOpenPinModal(); }
-    },
-    err => {
-      // 1단계 실패 시 2단계로 넘어감 (무시)
-    },
-    { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
-  );
-
-  // 2단계: 정밀 GPS (최대 15초, 1단계 성공해도 위치 보정)
-  navigator.geolocation.getCurrentPosition(
-    pos => {
+      navigator.geolocation.clearWatch(_locWatchId);
       const lat = pos.coords.latitude, lng = pos.coords.longitude;
       _wmapPendingLatLng = { lat, lng };
       _wmapMap.setView([lat, lng], 17);
       btn.textContent = '📍 현재 위치 핀 찍기'; btn.disabled = false;
-      if (!_modalOpened) { _modalOpened = true; wmapOpenPinModal(); }
-      // 모달 이미 열려있으면 좌표만 조용히 업데이트
+      // 내 위치 원 업데이트
+      if (_wmapMyCircle) _wmapMap.removeLayer(_wmapMyCircle);
+      _wmapMyCircle = L.circleMarker([lat, lng], {
+        radius: 8, color: '#4b9ef5', fillColor: '#4b9ef5',
+        fillOpacity: 0.8, weight: 2
+      }).addTo(_wmapMap).bindPopup('📍 현재 위치');
+      wmapOpenPinModal();
     },
     err => {
+      navigator.geolocation.clearWatch(_locWatchId);
       btn.textContent = '📍 현재 위치 핀 찍기'; btn.disabled = false;
-      if (!_modalOpened) {
-        const msg = err.code === 1
-          ? '위치 권한이 거부됐습니다.\n브라우저 주소창 🔒 → 위치 → 허용 후 다시 시도해주세요.'
-          : '위치를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.';
-        alert(msg);
-      }
+      const msg = err.code === 1
+        ? '위치 권한이 거부됐습니다.\n브라우저 주소창 🔒 → 위치 → 허용 후 다시 시도해주세요.'
+        : '위치를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.';
+      alert(msg);
     },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
   );
 }
 
