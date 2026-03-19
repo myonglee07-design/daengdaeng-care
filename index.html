@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.2.1">
+<meta name="app-version" content="v1.3.0">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -251,6 +251,7 @@
     window._fbGetDoc = getDoc;
     window._fbCollection = collection;
     window._fbOnSnapshot = onSnapshot;
+    window._fbDeleteDoc = (ref) => import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js').then(m => m.deleteDoc(ref));
 
     // 로그인 상태 감지
     onAuthStateChanged(auth, (user) => {
@@ -653,6 +654,37 @@
 
     <div id="dog-list-settings"></div>
 
+    <!-- 가족방 동기화 -->
+    <div class="section-title">가족방 동기화 ☁️</div>
+    <div id="room-section" style="background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px;margin-bottom:16px;">
+      <div id="room-login-required" style="text-align:center;padding:8px;color:var(--text2);font-size:0.85rem;">
+        🔑 로그인 후 가족방을 만들거나 참여할 수 있어요
+      </div>
+      <div id="room-connected" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <div style="font-size:0.78rem;color:var(--text2);">현재 가족방</div>
+            <div id="room-code-display" style="font-size:1.2rem;font-weight:800;color:var(--accent);letter-spacing:2px;"></div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button onclick="roomCopyCode()" style="padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:0.78rem;cursor:pointer;font-family:inherit;">복사</button>
+            <button onclick="roomLeave()" style="padding:6px 12px;background:color-mix(in srgb,var(--accent2) 12%,transparent);border:1px solid var(--accent2);border-radius:8px;color:var(--accent2);font-size:0.78rem;cursor:pointer;font-family:inherit;">나가기</button>
+          </div>
+        </div>
+        <div id="room-members" style="font-size:0.75rem;color:var(--text2);"></div>
+      </div>
+      <div id="room-not-connected" style="display:none;">
+        <div style="display:grid;gap:10px;">
+          <button onclick="roomCreate()" style="width:100%;padding:12px;background:var(--accent);border:none;border-radius:10px;color:#000;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;">🏠 새 가족방 만들기</button>
+          <div style="display:flex;gap:8px;">
+            <input id="room-join-input" type="text" placeholder="가족방 코드 입력 (예: DOG-1234)" maxlength="8"
+              style="flex:1;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.85rem;font-family:inherit;text-transform:uppercase;">
+            <button onclick="roomJoin()" style="padding:10px 16px;background:var(--green);border:none;border-radius:10px;color:#000;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;">참여</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
       <span>가족 관리</span>
       <button onclick="familyShowAdd()" style="font-size:0.75rem;padding:4px 10px;background:var(--accent);border:none;border-radius:20px;color:#000;font-weight:700;cursor:pointer;font-family:inherit;">+ 추가</button>
@@ -700,7 +732,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.2.1
+      댕댕케어 v1.3.0
     </div>
     <div style="height:8px"></div>
   </div>
@@ -862,7 +894,7 @@ function switchTab(idx, fromPopstate){
   if (idx === 0) { foodRender(); renderHomeDogs(); renderHomeNextSchedule(); initWalkList(); }
   if (idx === 1) { calRenderDogSelect(); calRender(); setTimeout(weightRender, 100); loadWeather(); }
   if (idx === 3) { renderBreedList(); closeBreedDetail(); document.getElementById('breed-search').value=''; currentBreeds=[...BREEDS]; }
-  if (idx === 4) { renderDogSettings(); renderFamilyList(); }
+  if (idx === 4) { renderDogSettings(); renderFamilyList(); renderRoomSection(); }
   // 탭 전환 시 맨 위로 스크롤
   const activeView = document.querySelectorAll('.view')[idx];
   if (activeView) activeView.scrollTop = 0;
@@ -3236,6 +3268,193 @@ function fbAutoSave() {
   clearTimeout(_fbSaveTimer);
   _fbSaveTimer = setTimeout(fbSaveData, 5000);
 }
+
+
+// ── 가족방 동기화 ──
+let _roomUnsubscribe = null;
+
+function roomGenCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'DOG-';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function roomGetMyCode() {
+  return localStorage.getItem('dc_room_code') || null;
+}
+
+function roomSaveCode(code) {
+  localStorage.setItem('dc_room_code', code);
+}
+
+async function roomCreate() {
+  if (!window._fbUser) { alert('먼저 로그인해주세요'); return; }
+  const code = roomGenCode();
+  try {
+    await window._fbSetDoc(window._fbDoc(window._fbDb, 'rooms', code), {
+      owner: window._fbUser.uid,
+      ownerName: window._fbUser.displayName || 'Myong',
+      members: [window._fbUser.uid],
+      memberNames: { [window._fbUser.uid]: window._fbUser.displayName || 'Myong' },
+      createdAt: new Date().toISOString()
+    });
+    roomSaveCode(code);
+    await roomSyncUpload(code);
+    roomStartListen(code);
+    renderRoomSection();
+    alert('가족방이 만들어졌어요!\n코드: ' + code + '\n\n가족에게 코드를 알려주세요!');
+  } catch(e) {
+    alert('방 만들기 실패: ' + e.message);
+  }
+}
+
+async function roomJoin() {
+  if (!window._fbUser) { alert('먼저 로그인해주세요'); return; }
+  const input = document.getElementById('room-join-input');
+  const code = (input?.value || '').toUpperCase().trim();
+  if (code.length < 4) { alert('코드를 입력해주세요'); return; }
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'rooms', code));
+    if (!snap.exists()) { alert('존재하지 않는 방 코드예요'); return; }
+    const data = snap.data();
+    const members = data.members || [];
+    if (!members.includes(window._fbUser.uid)) {
+      members.push(window._fbUser.uid);
+      const memberNames = data.memberNames || {};
+      memberNames[window._fbUser.uid] = window._fbUser.displayName || '가족';
+      await window._fbSetDoc(window._fbDoc(window._fbDb, 'rooms', code), 
+        { members, memberNames }, { merge: true });
+    }
+    roomSaveCode(code);
+    roomStartListen(code);
+    renderRoomSection();
+    alert('가족방에 참여했어요! 🎉');
+  } catch(e) {
+    alert('참여 실패: ' + e.message);
+  }
+}
+
+async function roomLeave() {
+  const code = roomGetMyCode();
+  if (!code || !window._fbUser) return;
+  if (!confirm('가족방에서 나가시겠어요?')) return;
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'rooms', code));
+    if (snap.exists()) {
+      const data = snap.data();
+      const members = (data.members || []).filter(m => m !== window._fbUser.uid);
+      await window._fbSetDoc(window._fbDoc(window._fbDb, 'rooms', code),
+        { members }, { merge: true });
+    }
+  } catch(e) {}
+  if (_roomUnsubscribe) { _roomUnsubscribe(); _roomUnsubscribe = null; }
+  localStorage.removeItem('dc_room_code');
+  renderRoomSection();
+}
+
+function roomCopyCode() {
+  const code = roomGetMyCode();
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    alert('코드가 복사됐어요: ' + code);
+  });
+}
+
+// 방 데이터 업로드 (내 데이터 → Firestore)
+async function roomSyncUpload(code) {
+  if (!code || !window._fbDb) return;
+  const syncKeys = ['dc_dogs','dc_cal','dc_family','dc_food','dc_walk'];
+  const data = {};
+  syncKeys.forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v) data[k] = v;
+  });
+  data['_updatedBy'] = window._fbUser?.uid || '';
+  data['_updatedAt'] = new Date().toISOString();
+  await window._fbSetDoc(
+    window._fbDoc(window._fbDb, 'rooms', code, 'sync', 'data'),
+    data, { merge: true }
+  );
+}
+
+// 방 실시간 감지
+function roomStartListen(code) {
+  if (_roomUnsubscribe) _roomUnsubscribe();
+  _roomUnsubscribe = window._fbOnSnapshot(
+    window._fbDoc(window._fbDb, 'rooms', code, 'sync', 'data'),
+    (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      // 내가 업데이트한 것이면 무시
+      if (data._updatedBy === window._fbUser?.uid) return;
+      // 다른 가족이 업데이트 → 내 로컬에 반영
+      const syncKeys = ['dc_dogs','dc_cal','dc_family','dc_food'];
+      let changed = false;
+      syncKeys.forEach(k => {
+        if (data[k] && data[k] !== localStorage.getItem(k)) {
+          localStorage.setItem(k, data[k]);
+          changed = true;
+        }
+      });
+      if (changed) {
+        // 조용히 화면 갱신
+        renderHomeDogs();
+        renderHomeNextSchedule();
+        if (_currentTab === 1) calRender();
+        if (_currentTab === 4) { renderDogSettings(); renderFamilyList(); }
+        console.log('가족 데이터 동기화됨');
+      }
+    }
+  );
+}
+
+function renderRoomSection() {
+  const loginReq = document.getElementById('room-login-required');
+  const connected = document.getElementById('room-connected');
+  const notConnected = document.getElementById('room-not-connected');
+  if (!loginReq) return;
+
+  if (!window._fbUser) {
+    loginReq.style.display = 'block';
+    connected.style.display = 'none';
+    notConnected.style.display = 'none';
+    return;
+  }
+  loginReq.style.display = 'none';
+  const code = roomGetMyCode();
+  if (code) {
+    connected.style.display = 'block';
+    notConnected.style.display = 'none';
+    document.getElementById('room-code-display').textContent = code;
+  } else {
+    connected.style.display = 'none';
+    notConnected.style.display = 'block';
+  }
+}
+
+// 로그인 상태 변경 시 방 섹션 업데이트
+const _origFbAuthChange = window.onFbAuthChange;
+window.onFbAuthChange = function(user) {
+  if (_origFbAuthChange) _origFbAuthChange(user);
+  renderRoomSection();
+  // 로그인 + 방 코드 있으면 자동 연결
+  if (user) {
+    const code = roomGetMyCode();
+    if (code) roomStartListen(code);
+  }
+};
+
+// 데이터 변경 시 방에 자동 업로드
+const _origFbAutoSave = window.fbAutoSave;
+window.fbAutoSave = function() {
+  if (_origFbAutoSave) _origFbAutoSave();
+  const code = roomGetMyCode();
+  if (code && window._fbUser) {
+    clearTimeout(window._roomSaveTimer);
+    window._roomSaveTimer = setTimeout(() => roomSyncUpload(code), 3000);
+  }
+};
 
 // 핀치줌 방지
 document.addEventListener('touchstart',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
