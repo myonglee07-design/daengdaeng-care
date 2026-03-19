@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.1.1">
+<meta name="app-version" content="v1.2.0">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -216,6 +216,50 @@
   .coming-soon .cs-title { font-size:1rem; font-weight:700; }
   .coming-soon .cs-sub   { font-size:0.85rem; margin-top:8px; }
 </style>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBxTsJNbyrrQS5ksjx42LIIdFkhCjM4L2E",
+      authDomain: "dog-walk-family.firebaseapp.com",
+      projectId: "dog-walk-family",
+      storageBucket: "dog-walk-family.firebasestorage.app",
+      messagingSenderId: "224723858296",
+      appId: "1:224723858296:web:71b1ccbe476bd1f9e74e8d",
+      measurementId: "G-9GGPBGRBC7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    // 전역 함수로 노출
+    window._fbAuth = auth;
+    window._fbDb = db;
+    window._fbProvider = provider;
+    window._fbSignIn = () => signInWithPopup(auth, provider);
+    window._fbSignOut = () => signOut(auth);
+    window._fbDoc = doc;
+    window._fbSetDoc = setDoc;
+    window._fbGetDoc = getDoc;
+    window._fbCollection = collection;
+    window._fbOnSnapshot = onSnapshot;
+
+    // 로그인 상태 감지
+    onAuthStateChanged(auth, (user) => {
+      window._fbUser = user;
+      if (typeof window.onFbAuthChange === 'function') {
+        window.onFbAuthChange(user);
+      }
+    });
+  </script>
 </head>
 <body class="theme-orange">
 
@@ -233,7 +277,10 @@
     </div>
     <span id="hw-temp" style="font-size:1rem;font-weight:800;color:var(--accent);"></span>
   </div>
-  <div class="header-right">
+  <div class="header-right" style="display:flex;align-items:center;gap:6px;">
+    <div id="fb-login-btn" onclick="fbLogin()" style="display:flex;align-items:center;gap:5px;padding:5px 10px;background:var(--card);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:0.72rem;font-weight:700;color:var(--text2);">
+      <span>🔑</span><span id="fb-login-label">로그인</span>
+    </div>
     <div class="hdr-btn" id="theme-btn" onclick="toggleTheme()">☀️</div>
     <div class="hdr-btn" onclick="switchTab(4)">⚙️</div>
   </div>
@@ -653,7 +700,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.1.1
+      댕댕케어 v1.2.0
     </div>
     <div style="height:8px"></div>
   </div>
@@ -3095,6 +3142,99 @@ function checkTodayAlerts() {
       });
     }
   });
+}
+
+
+// ── Firebase 로그인 ──
+window.onFbAuthChange = function(user) {
+  const btn = document.getElementById('fb-login-btn');
+  const label = document.getElementById('fb-login-label');
+  if (!btn) return;
+  if (user) {
+    // 로그인됨
+    const name = user.displayName ? user.displayName.split(' ')[0] : '로그인';
+    if (label) label.textContent = name;
+    btn.onclick = fbLogout;
+    btn.querySelector('span').textContent = user.photoURL
+      ? '' : '👤';
+    if (user.photoURL) {
+      btn.innerHTML = '<img src="' + user.photoURL + '" style="width:20px;height:20px;border-radius:50%;"> <span>' + name + '</span>';
+      btn.onclick = fbLogout;
+    }
+    // Firestore에서 데이터 로드
+    fbLoadData(user.uid);
+  } else {
+    // 로그아웃됨
+    btn.innerHTML = '<span>🔑</span><span id="fb-login-label">로그인</span>';
+    btn.onclick = fbLogin;
+  }
+};
+
+async function fbLogin() {
+  if (!window._fbSignIn) { alert('Firebase 로딩 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  try {
+    await window._fbSignIn();
+  } catch(e) {
+    console.log('로그인 오류:', e.message);
+  }
+}
+
+async function fbLogout() {
+  if (!window._fbSignOut) return;
+  if (!confirm('로그아웃 하시겠어요?')) return;
+  await window._fbSignOut();
+}
+
+async function fbSaveData() {
+  if (!window._fbUser || !window._fbDb) return;
+  try {
+    const uid = window._fbUser.uid;
+    const allData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('dc_')) {
+        allData[key] = localStorage.getItem(key);
+      }
+    }
+    await window._fbSetDoc(
+      window._fbDoc(window._fbDb, 'users', uid),
+      { data: allData, updatedAt: new Date().toISOString() }
+    );
+    console.log('Firestore 저장 완료');
+  } catch(e) {
+    console.log('저장 오류:', e);
+  }
+}
+
+async function fbLoadData(uid) {
+  if (!window._fbDb) return;
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._fbDb, 'users', uid));
+    if (snap.exists()) {
+      const saved = snap.data().data || {};
+      let count = 0;
+      for (const [key, val] of Object.entries(saved)) {
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, val);
+          count++;
+        }
+      }
+      if (count > 0) {
+        console.log('Firestore에서 ' + count + '개 항목 복원됨');
+        location.reload();
+      }
+    }
+  } catch(e) {
+    console.log('불러오기 오류:', e);
+  }
+}
+
+// 데이터 변경 시 자동 저장 (5초 디바운스)
+let _fbSaveTimer = null;
+function fbAutoSave() {
+  if (!window._fbUser) return;
+  clearTimeout(_fbSaveTimer);
+  _fbSaveTimer = setTimeout(fbSaveData, 5000);
 }
 
 // 핀치줌 방지
