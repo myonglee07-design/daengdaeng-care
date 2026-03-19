@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.3.5">
+<meta name="app-version" content="v1.3.6">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -561,26 +561,6 @@
     <div id="wmap-list-view" style="display:none;padding:0 16px 12px;">
       <div id="wmap-history-list"></div>
     </div>
-    <!-- 핀 저장 모달 -->
-    <div id="wmap-pin-modal" class="modal-overlay" onclick="if(event.target===this)wmapClosePinModal()">
-      <div class="modal-box" style="padding:20px;">
-        <div style="font-size:1rem;font-weight:800;margin-bottom:16px;">📍 핀 정보 입력</div>
-        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">장소 이름 (선택)</div>
-        <input id="wmap-pin-name" type="text" placeholder="예: 중앙공원, 산책로 입구..."
-          style="width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;margin-bottom:12px;">
-        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">누가 산책했나요?</div>
-        <div id="wmap-pin-who" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
-        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">메모 (선택)</div>
-        <input id="wmap-pin-memo" type="text" placeholder="예: 오늘 신나게 뛰었어요!"
-          style="width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;margin-bottom:16px;">
-        <div style="display:flex;gap:10px;">
-          <button onclick="wmapSavePin()"
-            style="flex:1;padding:12px;background:var(--accent);border:none;border-radius:10px;color:#000;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;">저장</button>
-          <button onclick="wmapClosePinModal()"
-            style="padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text2);cursor:pointer;font-family:inherit;">취소</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- 견종백과 -->
@@ -792,7 +772,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.3.5
+      댕댕케어 v1.3.6
     </div>
     <div style="height:8px"></div>
   </div>
@@ -2424,12 +2404,11 @@ async function loadWeather() {
         card.style.borderColor = 'color-mix(in srgb,#f59e0b 30%,var(--border))';
       }
     } catch(e) {
-      if (document.getElementById('weather-main')) {
-        document.getElementById('weather-main').textContent = '날씨 로드 실패';
-        document.getElementById('weather-sub').textContent = '네트워크 확인';
-      }
+      // 날씨 실패 시 조용히 숨김
+      const wCard = document.getElementById('weather-card');
+      if (wCard) wCard.style.display = 'none';
       const hwMain2 = document.getElementById('hw-main');
-      if (hwMain2) hwMain2.textContent = '로드 실패';
+      if (hwMain2) hwMain2.textContent = '';
     }
   }, () => {
     if (document.getElementById('weather-main')) {
@@ -3824,5 +3803,27 @@ function wmapRenderHistory() {
 document.addEventListener('touchstart',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
 document.addEventListener('touchmove', e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
 </script>
+
+<!-- 산책 핀 저장 모달 (body 레벨) -->
+<div id="wmap-pin-modal" class="modal-overlay" onclick="if(event.target===this)wmapClosePinModal()">
+  <div class="modal" style="padding:20px 20px 32px;">
+    <div class="modal-handle"></div>
+    <div style="font-size:1rem;font-weight:800;margin-bottom:16px;">📍 핀 정보 입력</div>
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">장소 이름 (선택)</div>
+    <input id="wmap-pin-name" type="text" placeholder="예: 중앙공원, 산책로 입구..."
+      style="width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;margin-bottom:12px;">
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">누가 산책했나요?</div>
+    <div id="wmap-pin-who" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+    <div style="font-size:0.8rem;color:var(--text2);margin-bottom:6px;">메모 (선택)</div>
+    <input id="wmap-pin-memo" type="text" placeholder="예: 오늘 신나게 뛰었어요!"
+      style="width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;font-family:inherit;outline:none;margin-bottom:16px;">
+    <div style="display:flex;gap:10px;">
+      <button onclick="wmapSavePin()"
+        style="flex:1;padding:12px;background:var(--accent);border:none;border-radius:10px;color:#000;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;">저장</button>
+      <button onclick="wmapClosePinModal()"
+        style="padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text2);cursor:pointer;font-family:inherit;">취소</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
