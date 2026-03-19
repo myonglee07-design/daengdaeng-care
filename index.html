@@ -693,6 +693,7 @@ const BREED_WEIGHT = {
   beagle:{min:8,max:11},shiba:{min:8,max:11},bordercol:{min:12,max:20},default:{min:3,max:6}
 };
 let _calDogFilter = 'all';
+let _currentTab = 0;
 let selectedWho = null, walkCount = 0;
 const maxWalk = 2;
 function getSeniorAge(b){return SENIOR_AGE[b]||SENIOR_AGE.default;}
@@ -732,16 +733,12 @@ function applyAll(){
   document.documentElement.className='font-'+S.font;
   document.querySelectorAll('.font-btn').forEach(b=>b.classList.toggle('active', b.dataset.size===S.font));
 }
-// Service Worker 등록
-if ('serviceWorker' in navigator) {
+// Service Worker 등록 (GitHub Pages에서만)
+if ('serviceWorker' in navigator && !location.hostname.includes('claudeusercontent')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/daengdaeng-care/sw.js', {
       scope: '/daengdaeng-care/'
-    }).then(reg => {
-      console.log('SW 등록 완료:', reg.scope);
-    }).catch(err => {
-      console.log('SW 등록 실패:', err);
-    });
+    }).catch(() => {});
   });
 }
 
@@ -771,18 +768,22 @@ function setFont(size){
 }
 
 // 탭 전환
-function switchTab(idx, pushHistory){
+function switchTab(idx, fromPopstate){
+  _currentTab = idx;
   document.querySelectorAll('.tab-item').forEach((t,i)=>t.classList.toggle('active',i===idx));
   document.querySelectorAll('.view').forEach((v,i)=>v.classList.toggle('active',i===idx));
   if (idx === 0) { foodRender(); renderHomeDogs(); renderHomeNextSchedule(); initWalkList(); }
   if (idx === 1) { calRenderDogSelect(); calRender(); setTimeout(weightRender, 100); loadWeather(); }
   if (idx === 3) { renderBreedList(); closeBreedDetail(); document.getElementById('breed-search').value=''; currentBreeds=[...BREEDS]; }
   if (idx === 4) { renderDogSettings(); }
-  // 홈(0)이 아닐 때만 history 스택에 추가
-  if (pushHistory !== false) {
+
+  if (!fromPopstate) {
     if (idx === 0) {
+      // 홈: 스택을 홈 하나로 리셋
       history.replaceState({ tab: 0 }, '');
     } else {
+      // 비홈: 홈 위에 현재 탭 1개만 쌓음
+      history.replaceState({ tab: 0 }, '', location.href);
       history.pushState({ tab: idx }, '');
     }
   }
@@ -790,8 +791,38 @@ function switchTab(idx, pushHistory){
 
 // 뒤로가기 처리
 window.addEventListener('popstate', function(e) {
-  const tab = e.state?.tab ?? 0;
-  switchTab(tab, false);
+  const state = e.state;
+
+  // 1. 열려있는 모달 먼저 닫기
+  const openModal = document.querySelector('.modal-overlay.show');
+  if (openModal) {
+    openModal.classList.remove('show');
+    history.pushState({ tab: _currentTab }, '');
+    return;
+  }
+  // 견종 상세 열려있으면 닫기
+  const breedDetail = document.getElementById('breed-detail');
+  if (breedDetail && breedDetail.style.display !== 'none') {
+    closeBreedDetail();
+    history.pushState({ tab: _currentTab }, '');
+    return;
+  }
+  // 달력 상세 열려있으면 닫기
+  const calDetail = document.getElementById('cal-detail');
+  if (calDetail && calDetail.style.display === 'block') {
+    calDetail.style.display = 'none';
+    history.pushState({ tab: _currentTab }, '');
+    return;
+  }
+
+  // 2. 비홈 탭이면 → 홈으로
+  if (_currentTab !== 0) {
+    switchTab(0, true);
+    history.replaceState({ tab: 0 }, '');
+    return;
+  }
+
+  // 3. 홈이면 → 앱 종료 (브라우저 기본 동작)
 });
 
 // 산책 모달
