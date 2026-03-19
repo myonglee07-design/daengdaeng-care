@@ -257,12 +257,24 @@
     <!-- 산책 체크 버튼 (접혔을 때도 표시) -->
     <button class="quick-walk-btn" id="walk-quick-btn" onclick="openWalkModal()">🐾 산책 완료 체크하기</button>
 
-    <div class="section-title">오늘 체크</div>
-    <div class="health-grid">
-      <div class="health-card"><div class="health-card-icon">🍚</div><div class="health-card-label">밥</div><div class="health-card-value">2회 완료</div><div class="health-card-sub">아침 · 저녁</div></div>
-      <div class="health-card"><div class="health-card-icon">💧</div><div class="health-card-label">음수량</div><div class="health-card-value">보통</div><div class="health-card-sub">오늘 기준</div></div>
-      <div class="health-card"><div class="health-card-icon">💊</div><div class="health-card-label">심장사상충</div><div class="health-card-value">완료</div><div class="health-card-sub">다음 D-18</div></div>
-      <div class="health-card" onclick="document.getElementById('quick-weight').focus();document.getElementById('quick-weight').scrollIntoView({behavior:'smooth'})"><div class="health-card-icon">⚖️</div><div class="health-card-label">체중</div><div class="health-card-value" id="home-weight-val">-</div><div class="health-card-sub">탭해서 기록</div></div>
+    <!-- 다가오는 일정 카드 -->
+    <div class="section-title">다가오는 일정</div>
+    <div id="home-schedule-cards" style="margin-bottom:16px;"></div>
+
+    <!-- 체중 카드 -->
+    <div class="health-grid" style="margin-bottom:0;">
+      <div class="health-card" onclick="document.getElementById('quick-weight').focus();document.getElementById('quick-weight').scrollIntoView({behavior:'smooth'})">
+        <div class="health-card-icon">⚖️</div>
+        <div class="health-card-label">체중</div>
+        <div class="health-card-value" id="home-weight-val">-</div>
+        <div class="health-card-sub">탭해서 기록</div>
+      </div>
+      <div class="health-card" onclick="switchTab(1)">
+        <div class="health-card-icon">📅</div>
+        <div class="health-card-label">달력 기록</div>
+        <div class="health-card-value" id="home-cal-count">-</div>
+        <div class="health-card-sub">이번 달 기록</div>
+      </div>
     </div>
 
     <div id="home-next-schedule" onclick="switchTab(1)" style="cursor:pointer;"></div>
@@ -409,17 +421,17 @@
     <!-- 달력 그리드 -->
     <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px;"></div>
     <!-- 범례 -->
-    <div style="display:flex;gap:14px;padding:10px 14px;background:var(--card);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;">
-      <span style="font-size:0.75rem;color:var(--text2);">🎂 생일</span>
-      <span style="font-size:0.75rem;color:var(--text2);">🍚 사료소진</span>
-      <span style="font-size:0.75rem;color:var(--text2);">🐾 산책</span>
-      <span style="font-size:0.75rem;color:var(--text2);">💉 접종</span>
-      <span style="font-size:0.75rem;color:var(--text2);">💊 약</span>
-      <span style="font-size:0.75rem;color:var(--text2);">⚖️ 체중</span>
-      <span style="font-size:0.75rem;color:var(--text2);">✂️ 미용</span>
-      <span style="font-size:0.75rem;color:var(--text2);">🛁 목욕</span>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 10px;padding:10px 14px;background:var(--card);border-radius:10px;border:1px solid var(--border);margin-bottom:16px;">
+      <span style="font-size:0.72rem;color:var(--text2);">🎂 생일</span>
+      <span style="font-size:0.72rem;color:var(--text2);">🍚 사료</span>
+      <span style="font-size:0.72rem;color:var(--text2);">🐾 산책</span>
+      <span style="font-size:0.72rem;color:var(--text2);">💉 접종</span>
+      <span style="font-size:0.72rem;color:var(--text2);">💊 약</span>
+      <span style="font-size:0.72rem;color:var(--text2);">⚖️ 체중</span>
+      <span style="font-size:0.72rem;color:var(--text2);">✂️ 미용</span>
+      <span style="font-size:0.72rem;color:var(--text2);">🛁 목욕</span>
     </div>
-    <!-- 날짜 상세 패널 -->
+        <!-- 날짜 상세 패널 -->
     <div id="cal-detail" style="display:none;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:16px;margin-bottom:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <span id="cal-detail-title" style="font-size:1rem;font-weight:700;"></span>
@@ -431,8 +443,9 @@
         <button onclick="calAddRecord('walk')" style="padding:7px 12px;background:color-mix(in srgb,var(--accent) 15%,transparent);border:1px solid var(--accent);border-radius:20px;color:var(--accent);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">🐾 산책</button>
         <button onclick="calAddRecord('vaccine')" style="padding:7px 12px;background:color-mix(in srgb,var(--green) 15%,transparent);border:1px solid var(--green);border-radius:20px;color:var(--green);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">💉 접종</button>
         <button onclick="calAddRecord('medicine')" style="padding:7px 12px;background:color-mix(in srgb,#a855f7 15%,transparent);border:1px solid #a855f7;border-radius:20px;color:#a855f7;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">💊 약/구충</button>
-        <button onclick="calAddRecord('weight')" style="padding:7px 12px;background:color-mix(in srgb,#f59e0b 15%,transparent);border:1px solid #f59e0b;border-radius:20px;color:#f59e0b;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">⚖️ 체중</button>
+        <button onclick="calAddRecord('bath')" style="padding:7px 12px;background:color-mix(in srgb,#60a5fa 15%,transparent);border:1px solid #60a5fa;border-radius:20px;color:#60a5fa;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">🛁 목욕</button>
         <button onclick="calAddRecord('grooming')" style="padding:7px 12px;background:color-mix(in srgb,#ec4899 15%,transparent);border:1px solid #ec4899;border-radius:20px;color:#ec4899;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">✂️ 미용</button>
+        <button onclick="calAddRecord('weight')" style="padding:7px 12px;background:color-mix(in srgb,#f59e0b 15%,transparent);border:1px solid #f59e0b;border-radius:20px;color:#f59e0b;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">⚖️ 체중</button>
         <button onclick="calAddCustomRecord()" style="padding:7px 12px;background:color-mix(in srgb,var(--text2) 10%,transparent);border:1px dashed var(--text3);border-radius:20px;color:var(--text2);font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">＋ 직접 입력</button>
       </div>
       <!-- 기록 목록 -->
@@ -2581,7 +2594,8 @@ function getVaccineSchedule(dog) {
 // ── 홈 다음 일정 연동 ──
 function renderHomeNextSchedule() {
   const el = document.getElementById('home-next-schedule');
-  if (!el) return;
+  const cardsEl = document.getElementById('home-schedule-cards');
+  if (!cardsEl) return;
 
   const today = new Date(); today.setHours(0,0,0,0);
   const db = calGetDB();
@@ -2589,9 +2603,8 @@ function renderHomeNextSchedule() {
   const items = [];
 
   allDogs.forEach(dog => {
-    // 수동 기록 예정
     const dogData = db[dog.id] || {};
-    for (let i = 1; i <= 60; i++) {
+    for (let i = 0; i <= 60; i++) {
       const d = new Date(today); d.setDate(d.getDate() + i);
       const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       (dogData[dateStr] || []).forEach(r => {
@@ -2600,39 +2613,103 @@ function renderHomeNextSchedule() {
         items.push({ diff: i, icon: icons[r.type]||'📝', label: labels[r.type]||r.type, note: r.note, dateStr, dogName: dog.name });
       });
     }
-    // 자동 예방접종 일정
     getVaccineSchedule(dog).forEach(s => {
       if (s.diff >= 0 && s.diff <= 60) items.push(s);
     });
+    // 생일
+    if (dog.birth) {
+      const p = dog.birth.split('-');
+      if (p.length >= 3) {
+        const thisYear = today.getFullYear();
+        for (let y = thisYear; y <= thisYear+1; y++) {
+          const bd = new Date(y, parseInt(p[1])-1, parseInt(p[2]));
+          const diff = Math.ceil((bd-today)/(1000*60*60*24));
+          if (diff >= 0 && diff <= 60) {
+            const age = y - parseInt(p[0]);
+            items.push({ dateStr: bd.toISOString().split('T')[0], diff, label:`${dog.name} 생일 (만 ${age}살)`, icon:'🎂', dogName: dog.name });
+          }
+        }
+      }
+    }
   });
 
-  if (items.length === 0) {
-    el.style.display = 'none';
+  // 사료 소진
+  try {
+    const fl = JSON.parse(localStorage.getItem('dc_food')||'[]');
+    if (fl.length > 0) {
+      const lt = fl[fl.length-1];
+      const bd2 = new Date(lt.date);
+      let ed2;
+      if (lt.mode==='free') { ed2=new Date(bd2); ed2.setDate(ed2.getDate()+(lt.avgdays||30)); }
+      else { ed2=new Date(bd2); ed2.setDate(ed2.getDate()+Math.floor(lt.amount/lt.daily)); }
+      const fdiff = Math.ceil((ed2-today)/(1000*60*60*24));
+      if (fdiff>=0&&fdiff<=30)
+        items.push({ dateStr:ed2.toISOString().split('T')[0], diff:fdiff, label:`사료 소진 예정 (${lt.name||'사료'})`, icon:'🍚', dogName:'전체' });
+    }
+  } catch(e){}
+
+  items.sort((a,b)=>a.diff-b.diff);
+  const seen = new Set();
+  const deduped = items.filter(r=>{
+    const k=r.dateStr+r.label+r.dogName;
+    if(seen.has(k))return false;
+    seen.add(k);return true;
+  });
+
+  // 홈 상단 배너 (가장 임박한 1개)
+  if (el) {
+    if (deduped.length === 0) { el.style.display='none'; }
+    else {
+      const next = deduped[0];
+      const dColor = next.diff<=3?'var(--accent2)':next.diff<=7?'#f59e0b':'var(--green)';
+      const dText = next.diff===0?'오늘!':`D-${next.diff}`;
+      const isRef = next.label&&next.label.includes('참고용');
+      const dateLabel = next.dateStr?next.dateStr.replace(/-/g,'/').slice(5)+' 예정':'';
+      el.style.display='block';
+      el.innerHTML=`<div class="vaccine-alert" style="border-color:color-mix(in srgb,${dColor} 30%,var(--border));" onclick="switchTab(1)">
+        <div class="vaccine-icon">${next.icon||'📅'}</div>
+        <div class="vaccine-text">
+          <h4 style="color:${dColor};">${(next.label||'').replace(' · 참고용','').replace('참고용','')} <span style="font-size:0.8rem;font-weight:800;">${dText}</span>${isRef?' <span style="font-size:0.65rem;color:#f59e0b;padding:1px 5px;border-radius:8px;">참고</span>':''}</h4>
+          <p>${dateLabel} · ${next.dogName}</p>
+        </div><div class="vaccine-arrow">›</div>
+      </div>`;
+    }
+  }
+
+  // 다가오는 일정 카드 3개
+  if (deduped.length === 0) {
+    cardsEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3);font-size:0.85rem;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);">예정된 일정이 없어요<br><span style="font-size:0.75rem;">달력에서 일정을 추가해보세요</span></div>`;
     return;
   }
 
-  // 가장 임박한 것
-  items.sort((a, b) => a.diff - b.diff);
-  const next = items[0];
-  const icon = next.icon || '📅';
-  const label = next.label || '';
-  const note = next.note ? ` · ${next.note}` : '';
-  const dogName = next.dogName ? ` · ${next.dogName}` : '';
-  const dColor = next.diff <= 3 ? 'var(--accent2)' : next.diff <= 7 ? '#f59e0b' : 'var(--green)';
-  const dText = next.diff === 0 ? '오늘!' : `D-${next.diff}`;
-  const dateLabel = next.dateStr ? next.dateStr.replace(/-/g, '/').slice(5) + ' 예정' : '';
-  const isRef = next.label && next.label.includes('참고용');
-
-  el.style.display = 'block';
-  el.innerHTML = `
-    <div class="vaccine-alert" style="border-color:color-mix(in srgb,${dColor} 30%,var(--border));">
-      <div class="vaccine-icon">${icon}</div>
-      <div class="vaccine-text">
-        <h4 style="color:${dColor};">${label.replace(' · 참고용','').replace('참고용','')} <span style="font-size:0.8rem;font-weight:800;">${dText}</span>${isRef ? ' <span style="font-size:0.65rem;color:#f59e0b;background:color-mix(in srgb,#f59e0b 15%,transparent);padding:1px 5px;border-radius:8px;">참고</span>' : ''}</h4>
-        <p>${dateLabel}${dogName}</p>
+  cardsEl.innerHTML = deduped.slice(0,3).map(r => {
+    const dColor = r.diff<=3?'var(--accent2)':r.diff<=7?'#f59e0b':'var(--green)';
+    const dText = r.diff===0?'오늘!':`D-${r.diff}`;
+    const isRef = r.label&&r.label.includes('참고용');
+    const label = (r.label||'').replace(' · 참고용','').replace('참고용','');
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border);margin-bottom:8px;cursor:pointer;" onclick="switchTab(1)">
+      <span style="font-size:1.4rem;flex-shrink:0;">${r.icon||'📅'}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.85rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${label}${isRef?' <span style="font-size:0.65rem;color:#f59e0b;">참고</span>':''}</div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:2px;">${r.dogName} · ${r.dateStr.replace(/-/g,'/').slice(5)}</div>
       </div>
-      <div class="vaccine-arrow">›</div>
+      <span style="font-size:0.78rem;font-weight:800;color:${dColor};background:color-mix(in srgb,${dColor} 12%,transparent);padding:3px 9px;border-radius:20px;flex-shrink:0;">${dText}</span>
     </div>`;
+  }).join('');
+
+  // 이번달 달력 기록 수 업데이트
+  const calCount = document.getElementById('home-cal-count');
+  if (calCount) {
+    const thisMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+    let count = 0;
+    allDogs.forEach(dog => {
+      const dogData = db[dog.id]||{};
+      Object.keys(dogData).filter(d=>d.startsWith(thisMonth)).forEach(d=>{
+        count += dogData[d].length;
+      });
+    });
+    calCount.textContent = count > 0 ? `${count}건` : '-';
+  }
 }
 
 
