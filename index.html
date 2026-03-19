@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.5.0">
+<meta name="app-version" content="v1.5.1">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -783,7 +783,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.5.0
+      댕댕케어 v1.5.1
     </div>
     <div style="height:8px"></div>
   </div>
@@ -1121,24 +1121,9 @@ function toggleWalkPanel() {
 }
 
 function cancelWalkByName(name) {
-  const saved = loadWalkData();
-  const idx = saved.findIndex(w => w.name === name);
-  if (idx >= 0) {
-    saved.splice(idx, 1);
-    saveWalkData(saved);
-    walkCount = Math.max(0, walkCount - 1);
-    // 달력 기록도 취소
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    const db = calGetDB();
-    const dogs = getDogs();
-    const targetId = dogs[0]?.id || 'dog1';
-    if (db[targetId]?.[dateStr]) {
-      const wIdx = db[targetId][dateStr].findIndex(r => r.type==='walk' && r.note===name);
-      if (wIdx >= 0) db[targetId][dateStr].splice(wIdx, 1);
-      calSaveDB(db);
-    }
-  }
+  const t = new Date();
+  const dateStr = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  _unregisterWalk(name, dateStr);
   initWalkList();
   updateWalkUI();
 }
@@ -1204,27 +1189,52 @@ function selectWho(btn,name){
   btn.classList.add('selected'); selectedWho=name;
   document.getElementById('confirm-btn').disabled=false;
 }
+
+// ── 산책 완료 공통 등록 함수 ──
+function _registerWalk(who, time, dateStr) {
+  if (!who || !dateStr) return false;
+  const saved = loadWalkData();
+  if (saved.find(w => w.name === who)) return false;
+  saved.push({ name: who, done: true, time });
+  saveWalkData(saved);
+  walkCount = Math.min(walkCount + 1, maxWalk);
+  const db = calGetDB();
+  const dogs = getDogs();
+  const targetId = dogs[0]?.id || 'dog1';
+  if (!db[targetId]) db[targetId] = {};
+  if (!db[targetId][dateStr]) db[targetId][dateStr] = [];
+  const alreadyInCal = db[targetId][dateStr].some(r => r.type === 'walk' && r.note === who);
+  if (!alreadyInCal) db[targetId][dateStr].push({ type: 'walk', note: who, time });
+  calSaveDB(db);
+  return true;
+}
+// ── 산책 완료 취소 공통 함수 ──
+function _unregisterWalk(who, dateStr) {
+  if (!who || !dateStr) return;
+  const saved = loadWalkData();
+  const wIdx = saved.findIndex(w => w.name === who);
+  if (wIdx !== -1) {
+    saved.splice(wIdx, 1);
+    saveWalkData(saved);
+    walkCount = Math.max(0, walkCount - 1);
+  }
+  const db = calGetDB();
+  const dogs = getDogs();
+  const targetId = dogs[0]?.id || 'dog1';
+  if (db[targetId]?.[dateStr]) {
+    const cIdx = db[targetId][dateStr].findIndex(r => r.type === 'walk' && r.note === who);
+    if (cIdx !== -1) db[targetId][dateStr].splice(cIdx, 1);
+    calSaveDB(db);
+  }
+}
+
 function confirmWalk(){
   if(!selectedWho) return;
   const t=new Date(), ts=`${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`;
-  const saved = loadWalkData();
-  if (!saved.find(w => w.name === selectedWho)) {
-    saved.push({ name: selectedWho, done: true, time: ts });
-    saveWalkData(saved);
-    walkCount = Math.min(walkCount+1, maxWalk);
-
-    // 달력 자동 기록
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    const db = calGetDB();
-    const dogs = getDogs();
-    const targetId = dogs[0]?.id || 'dog1';
-    if (!db[targetId]) db[targetId] = {};
-    if (!db[targetId][dateStr]) db[targetId][dateStr] = [];
-    db[targetId][dateStr].push({ type:'walk', note: selectedWho, time: ts });
-    calSaveDB(db);
-  }
+  const dateStr=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  _registerWalk(selectedWho, ts, dateStr);
   initWalkList();
+  updateWalkUI();
   document.getElementById('walk-modal').classList.remove('show');
 }
 
@@ -3924,25 +3934,11 @@ function wmapSavePin() {
   wmapAddMarker(pin);
   wmapRenderTodayPins();
   wmapRenderFavs();
-  // 핀에 who가 있으면 산책 완료도 같이 저장
+  // 핀에 who가 있으면 산책 완료도 같이 저장 (공통 함수 사용)
   if (pin.who) {
-    const walkSaved = loadWalkData();
-    if (!walkSaved.find(w => w.name === pin.who)) {
-      walkSaved.push({ name: pin.who, done: true, time: pin.time });
-      saveWalkData(walkSaved);
-      walkCount = Math.min(walkCount + 1, maxWalk);
-      // 달력 자동 기록
-      const calDb = calGetDB();
-      const dogs2 = getDogs();
-      const targetId2 = dogs2[0]?.id || 'dog1';
-      if (!calDb[targetId2]) calDb[targetId2] = {};
-      if (!calDb[targetId2][today]) calDb[targetId2][today] = [];
-      calDb[targetId2][today].push({ type:'walk', note: pin.who, time: pin.time });
-      calSaveDB(calDb);
-      // 홈 화면 업데이트
-      initWalkList();
-      updateWalkUI();
-    }
+    _registerWalk(pin.who, pin.time, today);
+    initWalkList();
+    updateWalkUI();
   }
 }
 
@@ -3997,32 +3993,14 @@ function wmapDeletePin(dogId, dateStr, idx) {
     const pin = db[dogId][dateStr][idx];
     db[dogId][dateStr].splice(idx, 1);
     wmapSaveDB(db);
-    // 핀에 who 있으면 산책 완료 데이터도 같이 삭제
+    // 핀에 who 있으면 산책 완료 + 달력 함께 삭제 (공통 함수)
     if (pin && pin.who) {
-      const walkSaved = loadWalkData();
-      const wIdx = walkSaved.findIndex(w => w.name === pin.who);
-      if (wIdx !== -1) {
-        walkSaved.splice(wIdx, 1);
-        saveWalkData(walkSaved);
-        walkCount = Math.max(0, walkCount - 1);
-        // 달력 기록도 삭제
-        const today = new Date();
-        const calDb = calGetDB();
-        const dogs2 = getDogs();
-        const targetId2 = dogs2[0]?.id || 'dog1';
-        if (calDb[targetId2]?.[dateStr]) {
-          const cIdx = calDb[targetId2][dateStr].findIndex(r => r.type === 'walk' && r.note === pin.who);
-          if (cIdx !== -1) { calDb[targetId2][dateStr].splice(cIdx, 1); calSaveDB(calDb); }
-        }
-        // 홈 탭이 아닐 수 있으므로 DOM 직접 갱신
-        walkCount = Math.max(0, walkCount - 1);
-        const pfill = document.getElementById('progress-fill');
-        const wcnt  = document.getElementById('walk-count');
-        if (pfill) pfill.style.width = (walkCount / maxWalk * 100) + '%';
-        if (wcnt)  wcnt.textContent  = `${walkCount} / ${maxWalk}회`;
-        // 완료 목록 갱신
-        initWalkList();
-      }
+      _unregisterWalk(pin.who, dateStr);
+      const pfill = document.getElementById('progress-fill');
+      const wcnt  = document.getElementById('walk-count');
+      if (pfill) pfill.style.width = (walkCount / maxWalk * 100) + '%';
+      if (wcnt)  wcnt.textContent  = `${walkCount} / ${maxWalk}회`;
+      initWalkList();
     }
     wmapRenderTodayPins();
   }
