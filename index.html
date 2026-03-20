@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.5.5">
+<meta name="app-version" content="v1.5.6">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -549,21 +549,7 @@
         <div style="font-size:0.75rem;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">⭐ 즐겨찾기</div>
         <div id="wmap-fav-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
       </div>
-      <div style="position:relative;width:100%;height:300px;">
-  <div id="wmap-leaflet" style="width:100%;height:300px;z-index:1;"></div>
-  <div id="wmap-gps-notice" style="
-    position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
-    background:rgba(0,0,0,0.72);color:#fff;
-    font-size:0.82rem;font-weight:700;
-    padding:8px 16px;border-radius:20px;
-    display:flex;align-items:center;gap:6px;
-    z-index:999;white-space:nowrap;
-    box-shadow:0 2px 8px rgba(0,0,0,0.3);
-    pointer-events:none;
-  ">
-    📍 GPS로 내 위치 찾는 중... 잠시만 기다려주세요
-  </div>
-</div>
+      <div id="wmap-leaflet" style="width:100%;height:300px;z-index:1;"></div>
       <div style="padding:12px 16px;display:flex;gap:10px;">
         <button onclick="wmapGoToMyLocation()" id="wmap-goto-btn"
           style="padding:13px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;">
@@ -797,7 +783,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.5.5
+      댕댕케어 v1.5.6
     </div>
     <div style="height:8px"></div>
   </div>
@@ -3744,9 +3730,6 @@ function wmapTodayKey() {
 }
 
 function wmapInit() {
-  // GPS 안내 초기화 (탭 진입마다 다시 표시)
-  const _gn = document.getElementById('wmap-gps-notice');
-  if (_gn) _gn.style.display = 'flex';
   const dogs = getDogs();
   if (!_wmapSelectedDog && dogs.length > 0) _wmapSelectedDog = dogs[0].id;
 
@@ -3793,9 +3776,6 @@ function wmapInit() {
           navigator.geolocation.clearWatch(_initWatchId);
           const lat = pos.coords.latitude, lng = pos.coords.longitude;
           _wmapMap.setView([lat, lng], 16);
-          // GPS 안내 숨기기
-          const _gpsNotice = document.getElementById('wmap-gps-notice');
-          if (_gpsNotice) _gpsNotice.style.display = 'none';
           if (locBtn) { locBtn.textContent = '📍 현재 위치 핀 찍기'; locBtn.disabled = false; }
           if (_wmapMyCircle) _wmapMap.removeLayer(_wmapMyCircle);
           _wmapMyCircle = L.circleMarker([lat, lng], {
@@ -4142,5 +4122,38 @@ document.addEventListener('touchmove', e=>{if(e.touches.length>1)e.preventDefaul
     </div>
   </div>
 </div>
+
+<script>
+// ── 탭 스와이프 (홈~설정 전체) ──
+(function() {
+  let _swipeStartX = 0;
+  let _swipeStartY = 0;
+  const SWIPE_MIN = 60;
+  const SWIPE_MAX_Y = 80;
+
+  document.addEventListener('touchstart', function(e) {
+    const t = e.touches[0];
+    _swipeStartX = t.clientX;
+    _swipeStartY = t.clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - _swipeStartX;
+    const dy = t.clientY - _swipeStartY;
+
+    if (Math.abs(dy) > SWIPE_MAX_Y) return;
+    if (Math.abs(dx) < SWIPE_MIN) return;
+
+    const cur = typeof _currentTab !== 'undefined' ? _currentTab : 0;
+
+    if (dx < 0) {
+      if (cur < 4) switchTab(cur + 1);
+    } else {
+      if (cur > 0) switchTab(cur - 1);
+    }
+  }, { passive: true });
+})();
+</script>
 </body>
 </html>
