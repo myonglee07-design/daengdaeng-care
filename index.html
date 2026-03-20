@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="댕댕케어">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>댕댕케어</title>
-<meta name="app-version" content="v1.5.4">
+<meta name="app-version" content="v1.5.5">
 <style>
   :root {
     --bg:#0f1117; --bg2:#1a1d27; --bg3:#242838;
@@ -783,7 +783,7 @@
 
     <!-- 앱 버전 -->
     <div style="text-align:center;padding:16px 0 8px;color:var(--text3);font-size:0.72rem;">
-      댕댕케어 v1.5.4
+      댕댕케어 v1.5.5
     </div>
     <div style="height:8px"></div>
   </div>
@@ -4122,5 +4122,44 @@ document.addEventListener('touchmove', e=>{if(e.touches.length>1)e.preventDefaul
     </div>
   </div>
 </div>
+
+<script>
+// ── 탭 스와이프 (홈~설정 전체) ──
+(function() {
+  let _swipeStartX = 0;
+  let _swipeStartY = 0;
+  const SWIPE_MIN = 60;
+  const SWIPE_MAX_Y = 80;
+
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  app.addEventListener('touchstart', function(e) {
+    const t = e.touches[0];
+    _swipeStartX = t.clientX;
+    _swipeStartY = t.clientY;
+  }, { passive: true });
+
+  app.addEventListener('touchend', function(e) {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - _swipeStartX;
+    const dy = t.clientY - _swipeStartY;
+
+    if (Math.abs(dy) > SWIPE_MAX_Y) return;
+    if (Math.abs(dx) < SWIPE_MIN) return;
+
+    const cur = typeof _currentTab !== 'undefined' ? _currentTab : 0;
+
+    if (dx < 0) {
+      // 왼쪽 스와이프 → 다음 탭 (최대 4 설정까지)
+      if (cur < 4) switchTab(cur + 1);
+    } else {
+      // 오른쪽 스와이프 → 이전 탭
+      if (cur > 0) switchTab(cur - 1);
+    }
+  }, { passive: true });
+})();
+</script>
+
 </body>
 </html>
